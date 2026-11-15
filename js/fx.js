@@ -1,99 +1,103 @@
-// Stance edge FX around the Control Sphere outline. Cheap SVG: pooled shapes moved once per frame.
-import { R_SPHERE, polar } from './layout.js';
+// Stance edge FX around the faceted diamond. Cheap SVG: pooled, grid-snapped rects, no worms or rounded rims.
+import { R_SPHERE } from './layout.js';
 import { STANCES } from './data.js';
+import { PIXEL, snap, MOTIF, diamondPath, diamondNormal } from './shape.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
 const hash = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const SMOKE = ['#0c0a1d', '#1a1730', '#2a2540', '#545a78', '#6e6f7d'];
 
 export function createFx(root) {
   const groups = {};
-  // Leaping Dragon: wafting smoke wisps.
+  // Leaping Dragon: blocky cream/yellow puffs lifting off the diamond, plus a hard diamond halo.
   const air = el('g');
-  const halo = el('circle', { r: R_SPHERE + 3, fill: 'none', stroke: STANCES.midair.color, filter: 'url(#smokeWarp)' });
-  const puffG = el('g', { filter: 'url(#smokeBlur)' });
-  air.append(halo, puffG);
-  const wisps = Array.from({ length: 30 }, () => puffG.appendChild(el('ellipse', { fill: STANCES.midair.color })));
+  const halo = el('path', { d: diamondPath(R_SPHERE + PIXEL), fill: 'none', stroke: STANCES.midair.color, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square', 'stroke-miterlimit': 2, 'shape-rendering': 'crispEdges' });
+  const puffAir = el('g');
+  air.append(halo, puffAir);
+  const wisps = Array.from({ length: 30 }, () => puffAir.appendChild(el('rect', { fill: STANCES.midair.color, 'shape-rendering': 'crispEdges' })));
   groups.midair = air;
-  // Crouching Tiger: creeping shadow.
+  // Crouching Tiger: dark-gray pixel smoke/shadow wafting up and out from the diamond — no tendrils, no circle, no spiral.
   const crouch = el('g');
-  const vignette = el('circle', { r: R_SPHERE, fill: 'url(#shadowVignette)' });
-  const shadowRing = el('circle', { r: R_SPHERE + 4, fill: 'none', stroke: '#0c0a1d', filter: 'url(#shadowWarp)' });
-  const tendG = el('g', { filter: 'url(#fxBlurSm)' });
-  const tendrils = Array.from({ length: 18 }, () => tendG.appendChild(el('path', { fill: 'none', stroke: '#0c0a1d', 'stroke-linecap': 'round' })));
-  crouch.append(vignette, shadowRing, tendG);
+  const vignette = el('path', { d: diamondPath(R_SPHERE), fill: MOTIF.shadow, 'shape-rendering': 'crispEdges' });
+  const shade = el('path', { d: diamondPath(R_SPHERE + PIXEL * 2), fill: 'none', stroke: MOTIF.shadow, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square', 'shape-rendering': 'crispEdges' });
+  const puffC = el('g');
+  const puffs = Array.from({ length: 36 }, () => puffC.appendChild(el('rect', { 'shape-rendering': 'crispEdges' })));
+  crouch.append(vignette, shade, puffC);
   groups.crouch = crouch;
-  // Whipping Reed: solid square motifs growing out of the edge.
+  // Whipping Reed: solid square motifs stepping out of the diamond edge.
   const stand = el('g');
-  const blocks = Array.from({ length: 36 }, () => stand.appendChild(el('rect', { fill: STANCES.standing.color, stroke: '#232147', 'stroke-width': 1.5 })));
-  const caps = Array.from({ length: 18 }, () => stand.appendChild(el('rect', { fill: STANCES.standing.deep, stroke: '#232147', 'stroke-width': 1.2 })));
+  const blocks = Array.from({ length: 36 }, () => stand.appendChild(el('rect', { fill: STANCES.standing.color, stroke: MOTIF.void, 'stroke-width': 1, 'shape-rendering': 'crispEdges' })));
+  const caps = Array.from({ length: 18 }, () => stand.appendChild(el('rect', { fill: STANCES.standing.deep, stroke: MOTIF.void, 'stroke-width': 1, 'shape-rendering': 'crispEdges' })));
   groups.standing = stand;
   for (const g of Object.values(groups)) root.appendChild(g);
 
   const shown = { standing: 0, crouch: 0, midair: 0 };
   let frozen = 0;
 
+  function placePuff(el, ang, phase, L, lift, palette, grow) {
+    const nrm = diamondNormal(ang, R_SPHERE);
+    const out = phase * (10 + 42 * L), up = phase * lift * (14 + 28 * L);
+    const x = snap(nrm.px + nrm.x * out), y = snap(nrm.py + nrm.y * out - up);
+    const sz = snap(Math.max(PIXEL * 2, PIXEL * 2 + phase * grow * (1.2 + L)));
+    el.setAttribute('x', x - sz / 2); el.setAttribute('y', y - sz / 2);
+    el.setAttribute('width', sz); el.setAttribute('height', sz);
+    const col = palette[Math.floor(hash(ang * 13 + 3) * palette.length) % palette.length];
+    el.setAttribute('fill', col);
+    el.setAttribute('opacity', (Math.sin(Math.PI * Math.min(1, phase * 1.2)) * (0.35 + 0.55 * L)).toFixed(2));
+  }
+
   function drawAir(t, L) {
-    // A soft warped halo plus blurred puffs that lift off the rim, swell, curl sideways and fade: smoke, not particles.
-    halo.setAttribute('stroke-width', (3 + 14 * L).toFixed(1)); halo.setAttribute('opacity', (0.2 + 0.4 * L).toFixed(2));
-    halo.setAttribute('transform', `rotate(${(-t * 6) % 360})`);
+    halo.setAttribute('stroke-width', String(PIXEL + snap(2 + 10 * L, 2)));
+    halo.setAttribute('opacity', (0.25 + 0.45 * L).toFixed(2));
     const n = Math.round(6 + 24 * L);
+    const pal = [STANCES.midair.color, MOTIF.cream, STANCES.midair.deep];
     wisps.forEach((w, i) => {
       if (i >= n) { w.setAttribute('opacity', 0); return; }
       const phase = (t * 0.12 + hash(i)) % 1;
-      const base = hash(i + 7) * 360 + t * 3 + phase * (18 + 10 * Math.sin(i)); // curl along the rim as it rises
-      const r0 = R_SPHERE + phase * (8 + 34 * L);
-      const p = polar(base, r0);
-      const size = 5 + phase * (8 + 16 * L);
-      w.setAttribute('cx', p.x.toFixed(1)); w.setAttribute('cy', p.y.toFixed(1));
-      w.setAttribute('rx', (size * 1.6).toFixed(1)); w.setAttribute('ry', size.toFixed(1));
-      w.setAttribute('transform', `rotate(${(base + 90).toFixed(1)} ${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
-      w.setAttribute('opacity', (Math.sin(Math.PI * Math.min(1, phase * 1.3)) * (0.12 + 0.3 * L)).toFixed(2));
+      const ang = hash(i + 7) * 360 + snap(phase * 16, PIXEL);
+      placePuff(w, ang, phase, L, 1, pal, 8);
     });
   }
+
   function drawCrouch(t, L) {
-    vignette.setAttribute('opacity', (0.25 + 0.75 * L).toFixed(2));
-    shadowRing.setAttribute('stroke-width', (5 + 26 * L).toFixed(1));
-    shadowRing.setAttribute('opacity', (0.35 + 0.6 * L).toFixed(2));
-    shadowRing.setAttribute('transform', `rotate(${(t * 4) % 360})`);
-    const n = Math.round(4 + 14 * L);
-    tendrils.forEach((p, i) => {
+    // Soft-looking smoke made of overlapping hard squares: drift up and out, swell, fade. Grows with depth.
+    vignette.setAttribute('opacity', (0.15 + 0.45 * L).toFixed(2));
+    shade.setAttribute('stroke-width', String(PIXEL + snap(4 + 18 * L, 2)));
+    shade.setAttribute('opacity', (0.3 + 0.55 * L).toFixed(2));
+    const n = Math.round(8 + 28 * L);
+    puffs.forEach((p, i) => {
       if (i >= n) { p.setAttribute('opacity', 0); return; }
-      const a0 = i * (360 / n) + hash(i) * 12 + Math.sin(t * 0.3 + i) * 4;
-      const reach = (8 + 40 * L) * (0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * 0.8 + i * 1.7)));
-      const inward = i % 3 === 0 ? -1 : 1;
-      const a = polar(a0, R_SPHERE), c = polar(a0 + 6 * Math.sin(t + i), R_SPHERE + inward * reach * 0.6), b = polar(a0 - 4, R_SPHERE + inward * reach);
-      p.setAttribute('d', `M${a.x.toFixed(1)},${a.y.toFixed(1)} Q${c.x.toFixed(1)},${c.y.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}`);
-      p.setAttribute('stroke-width', (3 + 7 * L).toFixed(1));
-      p.setAttribute('opacity', (0.5 + 0.5 * L).toFixed(2));
+      const phase = (t * 0.1 + hash(i + 2)) % 1;
+      const ang = hash(i + 11) * 360 + snap(phase * 10, PIXEL);
+      placePuff(p, ang, phase, L, 1.35, SMOKE, 10);
     });
   }
+
   function drawStand(t, L) {
     const n = Math.round(10 + 26 * L);
+    const put = (r, i, extra) => {
+      const ang = i * (360 / Math.max(n, 1));
+      const s = snap(PIXEL + (5 + 11 * L) * (0.5 + 0.5 * hash(i)));
+      const step = Math.floor((Math.sin(t * 1.4 + i * 0.9) + 1) * 2) / 4;
+      const nrm = diamondNormal(ang, R_SPHERE);
+      const off = s / 2 + extra + step * 8 * L;
+      const x = snap(nrm.px + nrm.x * off), y = snap(nrm.py + nrm.y * off);
+      r.setAttribute('x', x - s / 2); r.setAttribute('y', y - s / 2);
+      r.setAttribute('width', s); r.setAttribute('height', s);
+    };
     blocks.forEach((r, i) => {
       if (i >= n) { r.setAttribute('opacity', 0); return; }
-      const ang = i * (360 / n);
-      const s = 5 + 11 * L * (0.55 + 0.45 * hash(i));
-      const step = Math.floor((Math.sin(t * 1.4 + i * 0.9) + 1) * 2) / 4; // stepped, blocky extrusion
-      const off = R_SPHERE + s / 2 + step * 8 * L;
-      r.setAttribute('x', (-s / 2).toFixed(1)); r.setAttribute('y', (-s / 2).toFixed(1)); r.setAttribute('width', s.toFixed(1)); r.setAttribute('height', s.toFixed(1));
-      r.setAttribute('transform', `rotate(${ang.toFixed(1)}) translate(${off.toFixed(1)},0)`);
-      r.setAttribute('opacity', (0.45 + 0.55 * L).toFixed(2));
+      put(r, i, 0); r.setAttribute('opacity', (0.45 + 0.55 * L).toFixed(2));
     });
     caps.forEach((r, i) => {
       const on = L > 0.45 && i < Math.round((n / 2) * (L - 0.45) / 0.55);
       if (!on) { r.setAttribute('opacity', 0); return; }
-      const idx = i * 2; const ang = idx * (360 / n);
-      const s = 4 + 7 * L; const step = Math.floor((Math.sin(t * 1.4 + idx * 0.9) + 1) * 2) / 4;
-      const off = R_SPHERE + 16 * L + s + step * 8 * L + 4;
-      r.setAttribute('x', (-s / 2).toFixed(1)); r.setAttribute('y', (-s / 2).toFixed(1)); r.setAttribute('width', s.toFixed(1)); r.setAttribute('height', s.toFixed(1));
-      r.setAttribute('transform', `rotate(${ang.toFixed(1)}) translate(${off.toFixed(1)},0)`);
-      r.setAttribute('opacity', (0.8 * L).toFixed(2));
+      put(r, i * 2, 16 * L + PIXEL); r.setAttribute('opacity', (0.8 * L).toFixed(2));
     });
   }
   const draw = { midair: drawAir, crouch: drawCrouch, standing: drawStand };
 
-  // target: { stance, level } ; settings for speed / reduced motion.
   return function update(time, target, settings) {
     const t = settings.reducedMotion ? frozen : time * settings.speed;
     if (!settings.reducedMotion) frozen = t;

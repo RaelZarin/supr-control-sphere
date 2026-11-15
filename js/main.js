@@ -11,6 +11,7 @@ import { FACING_NAMES } from './layout.js';
 import { h } from './ui.js';
 import { renderStanceBar } from './stances.js';
 import { bindSettingsButton } from './settings.js';
+import { createPlus } from './plus.js';
 
 const $ = (s) => document.querySelector(s);
 const statusEl = $('#sync');
@@ -40,6 +41,8 @@ function refresh(enter = false) {
   app.model = m; renderer.show(m, { enter }); renderHud();
 }
 
+let plus = null;
+
 function renderHud() {
   const m = app.model; const st = STANCES[m.cur.stance];
   $('#stance').replaceChildren(h('span', { class: 'dot', style: `background:${st.color}` }), h('b', {}, st.name), h('span', { class: 'muted' }, ` · ${st.short}`));
@@ -51,6 +54,7 @@ function renderHud() {
   $('#facing').textContent = `Attack facing: ${FACING_NAMES[((app.settings.facing % 360) + 360) % 360] || app.settings.facing + '°'}${app.settings.mirror ? ' · mirrored' : ''}`;
   renderStanceBar($('#stanceBar'), m, (id) => act.select(id));
   renderInfo();
+  plus?.sync();
 }
 function renderInfo() {
   const m = app.model; const o = app.hover ? m.options.find((x) => x.id === app.hover) : null;
@@ -83,7 +87,8 @@ const act = {
   reset() { go([]); },
   rotate(d) { app.rotate(d); },
   miss() { svg.classList.remove('miss'); void svg.getBBox(); svg.classList.add('miss'); },
-  hover(id) { app.hover = id; renderInfo(); },
+  hover(id) { app.hover = id; renderInfo(); plus?.hover(id); },
+  longPress(id) { return plus?.longPress(id); },
 };
 
 app.rotate = (d) => {
@@ -118,6 +123,7 @@ document.querySelectorAll('[data-tab]').forEach((b) => b.addEventListener('click
 }));
 $('#undo').onclick = act.undo; $('#reset').onclick = act.reset;
 $('#rotL').onclick = () => app.rotate(-45); $('#rotR').onclick = () => app.rotate(45);
+$('#editBtn').onclick = () => { const on = plus?.setEdit(!plus.edit); $('#editBtn').classList.toggle('on', !!on); $('#editBtn').textContent = on ? '✎ Editing' : '✎ Edit'; };
 
 (async function boot() {
   try {
@@ -128,6 +134,17 @@ $('#rotL').onclick = () => app.rotate(-45); $('#rotR').onclick = () => app.rotat
     app.cat = makeCatalog(app.tree);
     refresh(true); renderControls($('#controls'), app); renderBuilder($('#builder'), app);
     bindInput(svg, renderer, act); startLoop();
+    const afterPlace = (res, t) => {
+      toast(`Added under ${t.title}`);
+      const selectNew = () => { if (app.model.options.some((o) => o.id === res.id)) act.select(res.id); };
+      if (t.id !== '__center' && t.parentId && t.parentId !== app.model.cur.id && app.model.options.some((o) => o.id === t.parentId)) {
+        renderer.travelTo(t.parentId, () => { app.path = [...app.path, t.parentId]; app.hover = null; refresh(true); renderBuilder($('#builder'), app); selectNew(); });
+        return;
+      }
+      selectNew();
+    };
+    plus = createPlus(app, { layer: $('#plusLayer'), pop: $('#plusPop'), svg, onAdd: afterPlace, onLink: afterPlace });
+    plus.sync();
     statusEl.textContent = fresh ? 'Loaded repo defaults' : 'Loaded saved state';
     if (fresh && (await store.mode()) === 'server') persist();
     bindSettingsButton($('#settingsBtn'), store);

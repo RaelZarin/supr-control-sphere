@@ -23,12 +23,13 @@
       <div id="crumbs" class="crumbs"></div>
       <div class="hudRow"><div id="stance" class="badge"></div><div id="depth" class="badge"></div></div>
     </div>
-    <div class="stageWrap"><svg id="sphere" role="application" aria-label="Control Sphere. Tap or swipe toward an option; arrow keys select."></svg></div>
+    <div class="stageWrap"><svg id="sphere" role="application" aria-label="Control Sphere. Tap or swipe toward an option; arrow keys select."></svg><div id="plusLayer" class="plusLayer"></div></div>
     <div class="bar">
       <button id="undo" type="button" title="Undo (Backspace or Ctrl/Cmd+Z)">↶ Undo</button>
       <button id="reset" type="button" title="Reset to Idle (Esc)">◎ Idle</button>
       <button id="rotL" type="button" title="Rotate facing (Q)">⟲</button>
       <button id="rotR" type="button" title="Rotate facing (E)">⟳</button>
+      <button id="editBtn" type="button" title="Show add buttons on every node">✎ Edit</button>
     </div>
     <div id="stanceBar" class="stanceBar" aria-label="Stances"></div>
     <div id="facing" class="muted small center"></div>
@@ -38,7 +39,7 @@
       <span><i style="background:#6e6f7d"></i>Crouching Tiger (crouch)</span>
       <span><i style="background:#f4eecf"></i>Leaping Dragon (air)</span>
       <span class="muted">Node colour = stance the move leaves you in. Red pips = tier, orange badge = momentum spend, dashed = stub.</span>
-      <span class="muted keys">Tap or swipe · arrows · 1–9 · Q/E rotate · Backspace / Ctrl+Z undo · Esc idle</span>
+      <span class="muted keys">Tap or swipe · arrows · 1–9 · Q/E rotate · Backspace / Ctrl+Z undo · Esc idle · Edit or long-press to add</span>
     </div>
   </section>
   <aside class="panel">
@@ -47,6 +48,7 @@
     <div id="builder" hidden></div>
   </aside>
 </main>
+<div id="plusPop" class="plusPop" hidden></div>
 <div id="toast" class="toast"></div>
 <script type="module" src="js/main.js"></script>
 </body>

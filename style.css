@@ -17,7 +17,7 @@ button, input, select, textarea { font: inherit; color: var(--text); }
 .badge { display: flex; align-items: center; gap: 6px; background: var(--panel); border: 1px solid var(--neutral); border-radius: 10px; padding: 4px 10px; font-size: 13.5px; }
 .dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--ink); display: inline-block; }
 .pips { display: inline-flex; gap: 3px; margin-left: 4px; } .pips i { width: 9px; height: 9px; border-radius: 2px; background: #33305e; display: inline-block; border: 1px solid var(--ink); transition: background 200ms; }
-.stageWrap { width: min(100%, 74vh, calc(100vh - 280px)); aspect-ratio: 1; margin: 0 auto; }
+.stageWrap { position: relative; width: min(100%, 74vh, calc(100vh - 280px)); aspect-ratio: 1; margin: 0 auto; }
 #sphere { width: 100%; height: 100%; display: block; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; overflow: visible; }
 #sphere.miss { animation: miss 220ms ease-out; }
 @keyframes miss { 20% { transform: translateX(-6px); } 45% { transform: translateX(5px); } 70% { transform: translateX(-3px); } }
@@ -103,3 +103,23 @@ textarea.export { font: 12px/1.35 ui-monospace, Menlo, monospace; resize: vertic
 .modal p { margin: 0 0 8px; }
 .modal label { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; font-size: 13px; }
 .modal .actions { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+
+.plusLayer { position: absolute; inset: 0; pointer-events: none; z-index: 4; }
+.plusBtn { pointer-events: auto; position: absolute; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; cursor: pointer; display: grid; place-items: center; }
+.plusGlyph { width: 22px; height: 22px; display: grid; place-items: center; background: #5294cd; color: transparent; border: 2px solid #15132b; transform: rotate(45deg); box-shadow: 2px 2px 0 #2c2449; position: relative; }
+.plusGlyph::after { content: '+'; position: absolute; color: #15132b; font: 800 16px/1 ui-monospace, Menlo, monospace; transform: rotate(-45deg); }
+.plusPop { position: fixed; z-index: 20; width: min(320px, calc(100vw - 16px)); background: var(--panel); color: var(--text); border: 2px solid var(--text); box-shadow: 6px 6px 0 #0c0a1d; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.plusPop[hidden] { display: none !important; }
+.plusHead { display: flex; align-items: center; gap: 8px; } .plusHead b { flex: 1; }
+.plusStances { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.plusSt { border: 2px solid color-mix(in srgb, var(--st) 50%, var(--neutral)); background: var(--panel); padding: 8px 4px; font-size: 12px; }
+.plusSt.on { background: color-mix(in srgb, var(--st) 28%, var(--panel)); border-color: var(--st); }
+.plusName { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.plusMore { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.plusMore[hidden] { display: none !important; }
+.plusMore label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.plusToggle { background: transparent; border: 0; text-decoration: underline; padding: 2px 0; cursor: pointer; text-align: left; color: var(--text); }
+.plusLink { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; }
+.plusLink .muted { grid-column: 1 / -1; }
+#editBtn.on { background: var(--primary); border-color: var(--primary); }
+@media (max-width: 860px) { .plusPop { left: 8px !important; right: 8px; width: auto; bottom: 8px; top: auto !important; } }

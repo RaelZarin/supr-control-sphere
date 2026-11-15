@@ -2,18 +2,24 @@
 export function bindInput(svg, r, act) {
   let down = null;
   const toView = (e) => { const b = svg.getBoundingClientRect(); return { x: e.clientX - b.left - b.width / 2, y: e.clientY - b.top - b.height / 2 }; };
+  let hold = null;
+  const clearHold = () => { if (hold) { clearTimeout(hold); hold = null; } };
   svg.addEventListener('pointerdown', (e) => {
     const node = e.target.closest('[data-id]');
-    down = { p: toView(e), t: performance.now(), id: node?.dataset.id || null, node };
+    down = { p: toView(e), t: performance.now(), id: node?.dataset.id || null, node, held: false };
     if (node) node.querySelector('.body')?.classList.add('press');
     svg.setPointerCapture(e.pointerId);
+    if (node && act.longPress) {
+      hold = setTimeout(() => { hold = null; if (down) { down.held = true; act.longPress(down.id); } }, 450);
+    }
   });
   const clear = () => { svg.querySelectorAll('.press').forEach((n) => n.classList.remove('press')); };
-  svg.addEventListener('pointercancel', () => { clear(); down = null; });
+  svg.addEventListener('pointercancel', () => { clearHold(); clear(); down = null; });
   svg.addEventListener('pointerup', (e) => {
-    clear(); if (!down) return;
+    clearHold(); clear(); if (!down) return;
     const p = toView(e); const dx = p.x - down.p.x, dy = p.y - down.p.y; const dist = Math.hypot(dx, dy);
-    const id = down.id; down = null;
+    const id = down.id, held = down.held; down = null;
+    if (held) return;
     if (dist < 14) {
       if (id === '__center') act.center(); else if (id) act.select(id);
       return;

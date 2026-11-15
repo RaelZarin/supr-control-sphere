@@ -1,6 +1,7 @@
 // Data-driven juice presets. Swap numbers / kit kinds when final art lands; playback stays the same.
 import { tween, curveFn } from './anim.js';
 import { polylinePath, polylineLength } from './route.js';
+import { PIXEL, snap, diamondPath } from './shape.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) if (v != null) e.setAttribute(k, v); return e; };
@@ -50,23 +51,22 @@ function burstSquares(layer, x, y, kit, ms, count = 8) {
     const ang = i * 45, rad = (ang * Math.PI) / 180;
     const s0 = 7, r = el('rect', { x: -s0 / 2, y: -s0 / 2, width: s0, height: s0, fill: kit.color, stroke: kit.deep, 'stroke-width': 1.2, 'pointer-events': 'none' });
     play(layer, r, ms, (_, p) => {
-      const d = 16 + 36 * p, sz = s0 * (1 - 0.35 * p);
-      r.setAttribute('x', (x + Math.cos(rad) * d - sz / 2).toFixed(1));
-      r.setAttribute('y', (y + Math.sin(rad) * d - sz / 2).toFixed(1));
-      r.setAttribute('width', sz.toFixed(1)); r.setAttribute('height', sz.toFixed(1));
+      const d = snap(16 + 36 * p), sz = snap(Math.max(PIXEL, s0 * (1 - 0.35 * p)));
+      r.setAttribute('x', snap(x + Math.cos(rad) * d - sz / 2));
+      r.setAttribute('y', snap(y + Math.sin(rad) * d - sz / 2));
+      r.setAttribute('width', sz); r.setAttribute('height', sz);
       r.setAttribute('opacity', (1 - p).toFixed(2));
     });
   }
 }
 
 function burstShadow(layer, x, y, kit, ms) {
-  const ring = el('rect', { fill: 'none', stroke: kit.deep, 'stroke-width': 6, filter: 'url(#fxBlurSm)', 'pointer-events': 'none' });
+  const ring = el('path', { fill: 'none', stroke: kit.deep, 'stroke-width': 6, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square', 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
   play(layer, ring, ms, (_, p) => {
-    const s = 28 + 44 * p;
-    ring.setAttribute('x', (x - s / 2).toFixed(1)); ring.setAttribute('y', (y - s / 2 + 4 * p).toFixed(1));
-    ring.setAttribute('width', s.toFixed(1)); ring.setAttribute('height', s.toFixed(1));
+    const s = snap(14 + 22 * p);
+    ring.setAttribute('d', diamondPath(s, Math.max(PIXEL, s * 0.3), PIXEL));
     ring.setAttribute('opacity', ((1 - p) * 0.9).toFixed(2));
-    ring.setAttribute('stroke-width', (6 * (1 - p) + 1).toFixed(1));
+    ring.setAttribute('stroke-width', String(snap(Math.max(2, 6 * (1 - p) + 1), 1)));
   });
   burstSquares(layer, x, y, kit, ms, 4);
 }
@@ -74,41 +74,33 @@ function burstShadow(layer, x, y, kit, ms) {
 function burstWisps(layer, x, y, kit, ms) {
   for (let i = 0; i < 7; i++) {
     const ang = i * 45 + (i % 2 ? 0 : 22.5), rad = (ang * Math.PI) / 180;
-    const w = el('ellipse', { fill: kit.color, filter: 'url(#fxBlurSm)', 'pointer-events': 'none' });
+    const w = el('rect', { fill: kit.color, 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
     play(layer, w, ms * (0.85 + 0.15 * (i % 3)), (_, p) => {
-      const d = 10 + 40 * p;
-      w.setAttribute('cx', (x + Math.cos(rad) * d).toFixed(1));
-      w.setAttribute('cy', (y + Math.sin(rad) * d - 6 * p).toFixed(1));
-      w.setAttribute('rx', (5 + 10 * p).toFixed(1)); w.setAttribute('ry', (3 + 5 * p).toFixed(1));
+      const d = snap(10 + 40 * p), sz = snap(Math.max(PIXEL, 4 + 8 * p));
+      w.setAttribute('x', snap(x + Math.cos(rad) * d - sz / 2));
+      w.setAttribute('y', snap(y + Math.sin(rad) * d - 6 * p - sz / 2));
+      w.setAttribute('width', sz); w.setAttribute('height', snap(Math.max(PIXEL, sz * 0.7)));
       w.setAttribute('opacity', (Math.sin(Math.PI * Math.min(1, p * 1.15)) * 0.85).toFixed(2));
     });
   }
 }
 
 function flashRing(layer, x, y, kit, P, ms) {
+  const ring = el('path', { fill: 'none', stroke: kit.kind === 'shadow' ? kit.deep : kit.flash, 'stroke-width': 3.5, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square', 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
+  ring.setAttribute('transform', `translate(${x},${y})`);
+  play(layer, ring, ms, (_, p) => {
+    const s = snap(P.ringStart + (P.ringEnd - P.ringStart) * p);
+    ring.setAttribute('d', diamondPath(s, Math.max(PIXEL, s * 0.3), PIXEL));
+    ring.setAttribute('opacity', (1 - p).toFixed(2));
+    ring.setAttribute('stroke-width', String(snap(Math.max(1, 3.5 * (1 - p) + 0.5), 1)));
+  });
   if (kit.kind === 'squares') {
-    const r = el('rect', { fill: 'none', stroke: kit.flash, 'stroke-width': 3.5, 'pointer-events': 'none' });
-    play(layer, r, ms, (_, p) => {
-      const s = (P.ringStart + (P.ringEnd - P.ringStart) * p) * 2;
-      r.setAttribute('x', (x - s / 2).toFixed(1)); r.setAttribute('y', (y - s / 2).toFixed(1));
-      r.setAttribute('width', s.toFixed(1)); r.setAttribute('height', s.toFixed(1));
-      r.setAttribute('opacity', (1 - p).toFixed(2));
-      r.setAttribute('stroke-width', (3.5 * (1 - p) + 0.5).toFixed(1));
-    });
-  } else if (kit.kind === 'shadow') {
-    const c = el('rect', { fill: 'none', stroke: kit.deep, 'stroke-width': 5, rx: 4, filter: 'url(#smokeBlur)', 'pointer-events': 'none' });
-    play(layer, c, ms, (_, p) => {
-      const s = (P.ringStart + (P.ringEnd - P.ringStart) * p) * 2;
-      c.setAttribute('x', (x - s / 2).toFixed(1)); c.setAttribute('y', (y - s / 2).toFixed(1));
-      c.setAttribute('width', s.toFixed(1)); c.setAttribute('height', s.toFixed(1));
-      c.setAttribute('opacity', ((1 - p) * 0.95).toFixed(2));
-    });
-  } else {
-    const c = el('circle', { cx: x, cy: y, r: P.ringStart, fill: 'none', stroke: kit.flash, 'stroke-width': 3, filter: 'url(#fxBlurSm)', 'pointer-events': 'none' });
-    play(layer, c, ms, (_, p) => {
-      c.setAttribute('r', (P.ringStart + (P.ringEnd - P.ringStart) * p).toFixed(1));
-      c.setAttribute('opacity', (1 - p).toFixed(2));
-      c.setAttribute('stroke-width', (3.2 * (1 - p) + 0.4).toFixed(1));
+    const box = el('rect', { fill: 'none', stroke: kit.flash, 'stroke-width': 2, 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
+    play(layer, box, ms, (_, p) => {
+      const s = snap((P.ringStart + (P.ringEnd - P.ringStart) * p) * 2);
+      box.setAttribute('x', snap(x - s / 2)); box.setAttribute('y', snap(y - s / 2));
+      box.setAttribute('width', s); box.setAttribute('height', s);
+      box.setAttribute('opacity', (1 - p).toFixed(2));
     });
   }
 }
@@ -144,14 +136,15 @@ function retractPath(layer, pts, color, P, ms) {
 }
 
 function flicker(layer, x, y, P, ms) {
-  const c = el('circle', { cx: x, cy: y, r: 26, fill: P.flicker, 'fill-opacity': 0.35, filter: 'url(#fxBlur)', 'pointer-events': 'none' });
-  const rim = el('circle', { cx: x, cy: y, r: 30, fill: 'none', stroke: P.flickerSoft, 'stroke-width': 3, 'pointer-events': 'none' });
+  const c = el('path', { fill: P.flicker, 'fill-opacity': 0.35, 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
+  const rim = el('path', { fill: 'none', stroke: P.flickerSoft, 'stroke-width': 3, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square', 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
+  c.setAttribute('transform', `translate(${x},${y})`); rim.setAttribute('transform', `translate(${x},${y})`);
   layer.append(c, rim);
   tween(ms, (p) => {
     const pulse = Math.sin(p * Math.PI);
-    c.setAttribute('r', (20 + 22 * pulse).toFixed(1));
+    c.setAttribute('d', diamondPath(snap(20 + 22 * pulse), PIXEL * 2, PIXEL));
     c.setAttribute('fill-opacity', (0.4 * pulse).toFixed(2));
-    rim.setAttribute('r', (24 + 18 * p).toFixed(1));
+    rim.setAttribute('d', diamondPath(snap(24 + 18 * p), PIXEL * 2, PIXEL));
     rim.setAttribute('opacity', ((1 - p) * 0.9).toFixed(2));
   }, { done: () => { c.remove(); rim.remove(); } });
 }

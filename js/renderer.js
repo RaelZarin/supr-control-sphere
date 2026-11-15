@@ -1,16 +1,17 @@
-// Renderer: draws the Control Sphere SVG (sectors, ring, world of nodes and links) and runs select/travel/undo motion.
+// Renderer: faceted diamond Control Sphere, octilinear links, select/travel/undo motion.
 import { STANCES, IDLE } from './data.js';
 import { R_SPHERE, R_INNER, polar, screenDeg } from './layout.js';
 import { curveFn, tween, onFrame, cancelAll } from './anim.js';
 import { createFx } from './fx.js';
 import { octilinearRoute, polylinePath, polylineAt, partialPolyline } from './route.js';
 import { createJuice, motionOff, juiceMs, PRESETS } from './juice.js';
+import { PIXEL, VIEW, MOTIF, diamondPath, diamondWedge, diamondAtAngle, facetFills } from './shape.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) if (v != null) e.setAttribute(k, v); for (const c of kids) if (c) e.append(c); return e; };
 const SECTOR_TINT = { high: '#5294cd', mid: '#545a78', low: '#2c2449' };
-const INK = '#15132b';
-export const VIEW = 272;
+const INK = MOTIF.ink;
+export { VIEW };
 const LINE = { fill: 'none', 'stroke-linejoin': 'miter', 'stroke-linecap': 'square', 'stroke-miterlimit': 3 };
 
 function abbrev(label) {
@@ -21,40 +22,43 @@ function mix(a, b, t) {
   const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
   const A = p(a), B = p(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
 }
+function nodeDiamond(r, fill, stroke, sw, dash) {
+  const pix = r < 24 ? 2 : PIXEL; const flat = Math.max(pix * 2, Math.round(r * 0.3));
+  return el('path', { d: diamondPath(r, flat, pix), ...LINE, fill, stroke, 'stroke-width': sw, 'stroke-dasharray': dash, 'shape-rendering': 'crispEdges' });
+}
 
-function raelGlyph(scale = 1) { // top-down Rael: shoulders, head, blade pointing to the front
+function raelGlyph(scale = 1) { // top-down Rael: shoulders, head, blade pointing to the front (character, not the frame)
   return el('g', { transform: `scale(${scale})`, 'pointer-events': 'none' },
     el('ellipse', { cx: 0, cy: 3, rx: 15, ry: 8, fill: '#3e6c9c', stroke: INK, 'stroke-width': 2 }),
     el('circle', { cx: 0, cy: 1, r: 7.5, fill: '#ede1a9', stroke: INK, 'stroke-width': 2 }),
     el('path', { d: 'M-2,-6 L0,-12 L2,-6', fill: INK }),
-    el('path', { d: 'M11,1 L13,-19', stroke: '#ede1a9', 'stroke-width': 3, 'stroke-linecap': 'round' }),
-    el('path', { d: 'M11,1 L13,-19', stroke: INK, 'stroke-width': 1, 'stroke-linecap': 'round' }));
+    el('path', { d: 'M11,1 L13,-19', stroke: '#ede1a9', 'stroke-width': 3, 'stroke-linecap': 'square' }),
+    el('path', { d: 'M11,1 L13,-19', stroke: INK, 'stroke-width': 1, 'stroke-linecap': 'square' }));
 }
 
 export function createRenderer(svg, handlers) {
   svg.setAttribute('viewBox', `${-VIEW} ${-VIEW} ${VIEW * 2} ${VIEW * 2}`);
+  svg.setAttribute('shape-rendering', 'crispEdges');
+  const maskD = diamondPath(R_SPHERE + 26);
   svg.innerHTML = `<defs>
     <filter id="fxBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
     <filter id="smokeBlur" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="5"/></filter>
-    <filter id="smokeWarp" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency="0.02" numOctaves="2" seed="9"/><feDisplacementMap in="SourceGraphic" scale="22"/><feGaussianBlur stdDeviation="3"/></filter>
     <filter id="fxBlurSm" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6"/></filter>
     <filter id="glowF" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
-    <filter id="shadowWarp" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="18"/><feGaussianBlur stdDeviation="2.5"/></filter>
-    <radialGradient id="shadowVignette"><stop offset="0.62" stop-color="#0c0a1d" stop-opacity="0"/><stop offset="1" stop-color="#0c0a1d" stop-opacity="0.85"/></radialGradient>
-    <radialGradient id="bodyGrad"><stop offset="0" stop-color="#2c2a58"/><stop offset="1" stop-color="#232147"/></radialGradient>
-    <radialGradient id="fadeGrad"><stop offset="0.72" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>
-    <mask id="worldMask" maskUnits="userSpaceOnUse" x="${-VIEW}" y="${-VIEW}" width="${VIEW * 2}" height="${VIEW * 2}"><circle r="${R_SPHERE + 26}" fill="url(#fadeGrad)"/></mask>
+    <mask id="worldMask" maskUnits="userSpaceOnUse" x="${-VIEW}" y="${-VIEW}" width="${VIEW * 2}" height="${VIEW * 2}"><path d="${maskD}" fill="#fff"/></mask>
   </defs>`;
-  const body = el('circle', { r: R_SPHERE, fill: 'url(#bodyGrad)' });
-  const bg = el('g'); const fxLayer = el('g', { 'pointer-events': 'none' });
-  const glow = el('circle', { r: R_SPHERE, fill: 'none', filter: 'url(#glowF)', 'pointer-events': 'none' });
-  const ring = el('circle', { r: R_SPHERE, fill: 'none', class: 'ring', 'pointer-events': 'none' });
+  const body = el('path', { d: diamondPath(), fill: MOTIF.void, 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
+  const facets = el('g', { 'pointer-events': 'none', opacity: 0.34, 'shape-rendering': 'crispEdges' });
+  facetFills().forEach((f) => facets.append(el('path', { d: f.d, fill: f.fill })));
+  const bg = el('g', { 'pointer-events': 'none' }); const fxLayer = el('g', { 'pointer-events': 'none' });
+  const glow = el('path', { d: diamondPath(R_SPHERE + PIXEL), ...LINE, filter: 'url(#glowF)', 'pointer-events': 'none' });
+  const ring = el('path', { d: diamondPath(), class: 'ring', ...LINE, 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
   const deco = el('g', { 'pointer-events': 'none' });
   const world = el('g'); const worldWrap = el('g', { mask: 'url(#worldMask)' }, world);
   const trailL = el('g', { 'pointer-events': 'none' }), linkL = el('g', { 'pointer-events': 'none' }), twigL = el('g', { 'pointer-events': 'none' }), nodeL = el('g'), labelL = el('g', { 'pointer-events': 'none' });
   const juiceL = el('g', { 'pointer-events': 'none' });
   world.append(trailL, linkL, twigL, nodeL, labelL, juiceL);
-  svg.append(body, bg, fxLayer, glow, ring, deco, worldWrap);
+  svg.append(body, facets, bg, fxLayer, glow, ring, deco, worldWrap);
   const fx = createFx(fxLayer);
   const juice = createJuice(juiceL);
 
@@ -77,20 +81,17 @@ export function createRenderer(svg, handlers) {
     for (const sec of m.cat.tree.sectors) {
       const a0 = screenDeg(sec.start, s), a1 = screenDeg(sec.end, s);
       const [lo, hi] = a0 < a1 ? [a0, a1] : [a1, a0];
-      const p = (d, r) => polar(d, r); const r0 = 62, r1 = R_SPHERE - 4;
-      const A = p(lo, r0), B = p(lo, r1), C = p(hi, r1), D = p(hi, r0);
-      bg.append(el('path', { d: `M${A.x},${A.y} L${B.x},${B.y} A${r1},${r1} 0 0 1 ${C.x},${C.y} L${D.x},${D.y} A${r0},${r0} 0 0 0 ${A.x},${A.y}Z`,
-        fill: SECTOR_TINT[sec.height] || '#545a78', opacity: strong, stroke: '#545a78', 'stroke-opacity': 0.5, 'stroke-width': 1, 'pointer-events': 'none' }));
+      bg.append(el('path', { d: diamondWedge(lo, hi, 62, R_SPHERE - 4), fill: SECTOR_TINT[sec.height] || '#545a78', opacity: strong, stroke: '#545a78', 'stroke-opacity': 0.5, 'stroke-width': 1, 'stroke-linejoin': 'miter', 'pointer-events': 'none' }));
       if (s.ringLabels === 'height') {
-        const mid = (lo + hi) / 2; const q = polar(mid, R_SPHERE + 17);
+        const mid = (lo + hi) / 2; const q = diamondAtAngle(mid, R_SPHERE + 18);
         deco.append(el('text', { x: q.x, y: q.y + 4, class: 'ringLabel' }, sec.height.toUpperCase()));
       }
     }
     if (s.ringLabels === 'facing') {
-      [['FWD', -90], ['R', 0], ['BACK', 90], ['L', 180]].forEach(([t, d]) => { const q = polar(d + s.facing, R_SPHERE + 17); deco.append(el('text', { x: q.x, y: q.y + 4, class: 'ringLabel' }, t)); });
+      [['FWD', -90], ['R', 0], ['BACK', 90], ['L', 180]].forEach(([t, d]) => { const q = diamondAtAngle(d + s.facing, R_SPHERE + 18); deco.append(el('text', { x: q.x, y: q.y + 4, class: 'ringLabel' }, t)); });
     }
-    const f = polar(s.facing - 90, R_SPHERE - 11); // front marker, just inside the ring
-    deco.append(el('path', { d: 'M0,-7 L7,5 L-7,5Z', transform: `translate(${f.x},${f.y}) rotate(${s.facing})`, fill: '#ede1a9', stroke: INK, 'stroke-width': 1.5 }));
+    const f = diamondAtAngle(s.facing - 90, R_SPHERE - PIXEL * 2);
+    deco.append(el('path', { d: 'M0,-7 L7,5 L-7,5Z', transform: `translate(${f.x},${f.y}) rotate(${s.facing})`, fill: MOTIF.cream, stroke: INK, 'stroke-width': 1.5, 'stroke-linejoin': 'miter' }));
   }
 
   function drawRing(m) {
@@ -104,15 +105,15 @@ export function createRenderer(svg, handlers) {
     const st = STANCES[stance] || STANCES.standing; const r = opts.r || 28;
     const g = el('g', { class: 'node' + (move.stub ? ' stub' : '') + (opts.center ? ' center' : ''), 'data-id': opts.trail ? null : opts.center ? '__center' : id });
     const b = el('g', { class: 'body' });
-    b.append(el('circle', { r: r + 10, fill: 'transparent' })); // larger touch target
-    b.append(el('circle', { r, fill: st.color, stroke: INK, 'stroke-width': 2.6, 'stroke-dasharray': move.stub ? '5 4' : null }));
-    b.append(el('circle', { r: r - 5, fill: 'none', stroke: '#ffffff', 'stroke-opacity': 0.18, 'stroke-width': 2 }));
+    b.append(nodeDiamond(r + 10, 'transparent', 'none', 0));
+    b.append(nodeDiamond(r, st.color, INK, 2.6, move.stub ? '5 4' : null));
+    b.append(nodeDiamond(Math.max(6, r - 6), 'none', MOTIF.cream, 1.6));
     if (opts.center) b.append(raelGlyph(r / 30));
     else b.append(el('text', { class: 'abbr', y: 5, fill: st.ink }, abbrev(move.label || id)));
     const tier = Math.min(3, Math.round(move.tier || 0));
-    for (let i = 0; i < tier; i++) b.append(el('circle', { cx: (i - (tier - 1) / 2) * 8, cy: -r + 7, r: 2.4, fill: '#ea5439', stroke: INK, 'stroke-width': 1 }));
-    if (move.spend) b.append(el('g', { transform: `translate(${r * 0.72},${-r * 0.72})` }, el('circle', { r: 8.5, fill: '#e88a4a', stroke: INK, 'stroke-width': 1.6 }), el('text', { class: 'badge', y: 3.5 }, String(move.spend))));
-    if (opts.dirChevron != null) { const c = polar(opts.dirChevron, r + 7); b.append(el('path', { d: 'M-5,-4 L3,0 L-5,4', transform: `translate(${c.x},${c.y}) rotate(${opts.dirChevron})`, fill: 'none', stroke: st.color, 'stroke-width': 2.4, 'stroke-linecap': 'round' })); }
+    for (let i = 0; i < tier; i++) b.append(el('rect', { x: (i - (tier - 1) / 2) * 8 - 2.5, y: -r + 2, width: 5, height: 5, fill: '#ea5439', stroke: INK, 'stroke-width': 1 }));
+    if (move.spend) b.append(el('g', { transform: `translate(${r * 0.72},${-r * 0.72})` }, el('rect', { x: -8, y: -8, width: 16, height: 16, fill: '#e88a4a', stroke: INK, 'stroke-width': 1.6 }), el('text', { class: 'badge', y: 3.5 }, String(move.spend))));
+    if (opts.dirChevron != null) { const c = polar(opts.dirChevron, r + 7); b.append(el('path', { d: 'M-5,-4 L3,0 L-5,4', transform: `translate(${c.x},${c.y}) rotate(${opts.dirChevron})`, fill: 'none', stroke: st.color, 'stroke-width': 2.4, 'stroke-linecap': 'square' })); }
     g.append(b);
     if (opts.label) g.append(el('text', { class: 'label', y: r + 15 }, opts.label));
     return { g, body: b };
@@ -125,8 +126,7 @@ export function createRenderer(svg, handlers) {
     const n = m.steps.length;
     for (let k = Math.max(1, n - 7); k < n; k++) {
       const a = m.pos[k - 1], b = m.pos[k]; const age = n - 1 - k; const stc = STANCES[m.steps[k].stance].color;
-      const pts = octilinearRoute(a, b, s.bend);
-      trailL.append(el('path', { d: polylinePath(pts), ...LINE, stroke: stc, 'stroke-width': s.line + 2, 'stroke-opacity': Math.max(0.15, 0.7 - age * 0.1) }));
+      trailL.append(el('path', { d: polylinePath(octilinearRoute(a, b, s.bend)), ...LINE, stroke: stc, 'stroke-width': s.line + 2, 'stroke-opacity': Math.max(0.15, 0.7 - age * 0.1) }));
     }
     for (let k = Math.max(0, n - 7); k < n - 1; k++) {
       const st = m.steps[k]; const age = n - 1 - k; const p = m.pos[k]; const mv = m.cat.move(st.id);
@@ -157,7 +157,7 @@ export function createRenderer(svg, handlers) {
           const twPts = octilinearRoute({ x: to.x + startRel.x, y: to.y + startRel.y }, { x: to.x + tipRel.x, y: to.y + tipRel.y }, o.link.bend);
           const end = twPts[twPts.length - 1];
           twigG.append(el('path', { d: polylinePath(twPts), ...LINE, stroke: STANCES[tw.stance].color, 'stroke-width': Math.max(1, s.line - 0.5), 'stroke-opacity': 0.55 }));
-          twigG.append(el('circle', { cx: end.x, cy: end.y, r: 5.5, fill: STANCES[tw.stance].color, stroke: INK, 'stroke-width': 1.4 }));
+          twigG.append(el('g', { transform: `translate(${end.x},${end.y})` }, nodeDiamond(5.5, STANCES[tw.stance].color, INK, 1.4)));
         });
         twigL.append(twigG);
       }
@@ -177,7 +177,6 @@ export function createRenderer(svg, handlers) {
 
   function bump(el, cls) { el.classList.remove(cls); void el.getBBox(); el.classList.add(cls); }
 
-  // Selecting an option: squash-pop + stance burst + path pulse, then travel along the octilinear route.
   function travelTo(id, done) {
     const hit = optNodes.get(id); if (!hit || !model) return false;
     if (busy) cancelAll();
@@ -191,12 +190,10 @@ export function createRenderer(svg, handlers) {
     curNode.g.setAttribute('opacity', 0.5);
     const from = { ...cam }, to = hit.to, pts = hit.pts.length > 1 ? hit.pts : octilinearRoute(from, to, o.link.bend);
     const ease = curveFn(s.curve === 'linear' ? 'linear' : 'easeOut', s.overshoot);
-    const ms = motionOff(s) ? 0 : s.travelMs / s.speed;
-    tween(ms, (p) => setCam(polylineAt(pts, ease(p))), { done: () => { busy = false; done(); } });
+    tween(motionOff(s) ? 0 : s.travelMs / s.speed, (p) => setCam(polylineAt(pts, ease(p))), { done: () => { busy = false; done(); } });
     return true;
   }
 
-  // Undo: line retracts back along its path, current node reverse-squashes, cool-tone flicker, camera rewinds.
   function rewind(done) {
     if (!model || model.steps.length < 2) return false;
     if (busy) cancelAll();
@@ -208,8 +205,7 @@ export function createRenderer(svg, handlers) {
     juice.playUndo({ x: here.x, y: here.y, path: fwd, color: STANCES[model.cur.stance].color, settings: s });
     for (const [, v] of optNodes) { v.node.g.setAttribute('opacity', 0.12); if (v.lab) v.lab.setAttribute('opacity', 0.08); if (v.link) v.link.setAttribute('stroke-opacity', 0.08); if (v.twigG) v.twigG.setAttribute('opacity', 0); }
     const ease = curveFn(s.curve === 'linear' ? 'linear' : 'easeOut', s.overshoot);
-    const ms = juiceMs(PRESETS.undo.retractMs, s);
-    tween(ms, (p) => setCam(polylineAt(back, ease(p))), { done: () => { busy = false; done(); } });
+    tween(juiceMs(PRESETS.undo.retractMs, s), (p) => setCam(polylineAt(back, ease(p))), { done: () => { busy = false; done(); } });
     return true;
   }
 
