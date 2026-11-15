@@ -1,4 +1,4 @@
-// Input: tap a node, swipe/flick on the sphere (touch or mouse drag), arrow keys, Q/E rotate, Backspace undo, Esc reset.
+// Input: tap a node, swipe/flick on the sphere (touch or mouse drag), arrow keys, Q/E rotate, Backspace or Ctrl/Cmd+Z undo, Esc reset.
 export function bindInput(svg, r, act) {
   let down = null;
   const toView = (e) => { const b = svg.getBoundingClientRect(); return { x: e.clientX - b.left - b.width / 2, y: e.clientY - b.top - b.height / 2 }; };
@@ -29,7 +29,7 @@ export function bindInput(svg, r, act) {
     if (DIR[e.key] != null) { e.preventDefault(); const o = r.optionAtAngle(DIR[e.key], 68); if (o) act.select(o.id); else act.miss(); }
     else if (e.key === 'q' || e.key === 'Q') act.rotate(-45);
     else if (e.key === 'e' || e.key === 'E') act.rotate(45);
-    else if (e.key === 'Backspace') { e.preventDefault(); act.undo(); }
+    else if (e.key === 'Backspace' || ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey)) { e.preventDefault(); act.undo(); }
     else if (e.key === 'Escape') act.reset();
     else if (/^[1-9]$/.test(e.key)) { const o = r.model?.options[Number(e.key) - 1]; if (o) act.select(o.id); }
   });

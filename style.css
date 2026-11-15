@@ -29,6 +29,10 @@ button, input, select, textarea { font: inherit; color: var(--text); }
 .node .body.press { transform: scale(.84); transition-duration: 80ms; }
 .node .body.pop { animation: pop 150ms cubic-bezier(.34,1.8,.64,1); }
 @keyframes pop { 0% { transform: scale(.84); } 55% { transform: scale(1.28); } 100% { transform: scale(1.12); } }
+.node .body.selectJuice { animation: selectJuice 210ms cubic-bezier(.34,1.7,.64,1) both; }
+@keyframes selectJuice { 0% { transform: scale(.82, .76); } 40% { transform: scale(1.26, 1.2); } 100% { transform: scale(1); } }
+.node .body.undoJuice { animation: undoJuice 240ms cubic-bezier(.2,.7,.3,1) both; }
+@keyframes undoJuice { 0% { transform: scale(1); } 35% { transform: scale(1.14, .72); } 100% { transform: scale(.18); opacity: 0; } }
 .node.stub { opacity: .62; }
 .abbr { font-size: 15px; font-weight: 800; text-anchor: middle; pointer-events: none; }
 .badge text, .node .badge { font-size: 10px; font-weight: 800; text-anchor: middle; fill: var(--ink); }
@@ -70,7 +74,10 @@ input[type=text], input[type=password], input[type=number], select, textarea { b
 textarea.export { font: 12px/1.35 ui-monospace, Menlo, monospace; resize: vertical; }
 .toast { position: fixed; left: 50%; bottom: 18px; transform: translate(-50%, 20px); background: var(--primary); padding: 8px 14px; border-radius: 10px; opacity: 0; transition: all 180ms; pointer-events: none; z-index: 10; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
-@media (prefers-reduced-motion: reduce) { .node .body, .crumb, button { transition: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .node .body, .crumb, button { transition: none; }
+  .node .body.pop, .node .body.selectJuice, .node .body.undoJuice, #sphere.miss { animation: none; }
+}
 /* Stance bar */
 .stanceBar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 8px auto 2px; max-width: 520px; width: 100%; }
 .stanceBtn { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px 7px; border-radius: 12px; background: var(--panel); border: 2px solid color-mix(in srgb, var(--st) 45%, var(--neutral)); color: var(--text); cursor: pointer; transition: transform 90ms cubic-bezier(.34,1.56,.64,1), box-shadow 160ms, opacity 160ms, border-color 160ms; }

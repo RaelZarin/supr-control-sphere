@@ -32,7 +32,7 @@ export function renderControls(root, app) {
       slider('Animation speed', s.speed, { min: 0.25, max: 2.5, step: 0.05, fmt: (v) => v.toFixed(2) + '×', onInput: (v) => set({ speed: v }) }),
       select('Motion curve', s.curve, CURVES, (v) => set({ curve: v })),
       slider('Overshoot', s.overshoot, { min: 0, max: 3, step: 0.05, fmt: (v) => v.toFixed(2), onInput: (v) => set({ overshoot: v }) }),
-      slider('Curve bend', s.bend, { min: -1, max: 1, step: 0.05, fmt: (v) => v.toFixed(2), onInput: (v) => set({ bend: v }) }),
+      slider('Elbow bias', s.bend, { min: -1, max: 1, step: 0.05, fmt: (v) => v.toFixed(2), onInput: (v) => set({ bend: v }) }),
       slider('Travel time', s.travelMs, { min: 120, max: 700, step: 10, fmt: (v) => v + ' ms', onInput: (v) => set({ travelMs: v }) }),
       slider('Breathing', s.breathe, { min: 0, max: 0.15, step: 0.005, fmt: pct, onInput: (v) => set({ breathe: v }) }),
       toggle('Reduced motion', s.reducedMotion, (v) => set({ reducedMotion: v })),

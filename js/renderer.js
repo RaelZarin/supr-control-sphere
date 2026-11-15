@@ -1,14 +1,17 @@
-// Renderer: draws the Control Sphere SVG (sectors, ring, world of nodes and links) and runs select/travel/entrance motion.
+// Renderer: draws the Control Sphere SVG (sectors, ring, world of nodes and links) and runs select/travel/undo motion.
 import { STANCES, IDLE } from './data.js';
 import { R_SPHERE, R_INNER, polar, screenDeg } from './layout.js';
-import { curveFn, bezierCtrl, bezierAt, tween, onFrame, cancelAll } from './anim.js';
+import { curveFn, tween, onFrame, cancelAll } from './anim.js';
 import { createFx } from './fx.js';
+import { octilinearRoute, polylinePath, polylineAt, partialPolyline } from './route.js';
+import { createJuice, motionOff, juiceMs, PRESETS } from './juice.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) if (v != null) e.setAttribute(k, v); for (const c of kids) if (c) e.append(c); return e; };
 const SECTOR_TINT = { high: '#5294cd', mid: '#545a78', low: '#2c2449' };
 const INK = '#15132b';
 export const VIEW = 272;
+const LINE = { fill: 'none', 'stroke-linejoin': 'miter', 'stroke-linecap': 'square', 'stroke-miterlimit': 3 };
 
 function abbrev(label) {
   const w = String(label).replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/);
@@ -17,10 +20,6 @@ function abbrev(label) {
 function mix(a, b, t) {
   const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
   const A = p(a), B = p(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
-}
-function partialQuad(a, c, b, t) { // first t of a quadratic bezier, as a path
-  const c1 = { x: a.x + (c.x - a.x) * t, y: a.y + (c.y - a.y) * t }; const e = bezierAt(a, c, b, t);
-  return `M${a.x.toFixed(1)},${a.y.toFixed(1)} Q${c1.x.toFixed(1)},${c1.y.toFixed(1)} ${e.x.toFixed(1)},${e.y.toFixed(1)}`;
 }
 
 function raelGlyph(scale = 1) { // top-down Rael: shoulders, head, blade pointing to the front
@@ -53,10 +52,11 @@ export function createRenderer(svg, handlers) {
   const deco = el('g', { 'pointer-events': 'none' });
   const world = el('g'); const worldWrap = el('g', { mask: 'url(#worldMask)' }, world);
   const trailL = el('g', { 'pointer-events': 'none' }), linkL = el('g', { 'pointer-events': 'none' }), twigL = el('g', { 'pointer-events': 'none' }), nodeL = el('g'), labelL = el('g', { 'pointer-events': 'none' });
-  world.append(trailL, linkL, twigL, nodeL, labelL);
-  const burstL = el('g', { 'pointer-events': 'none' });
-  svg.append(body, bg, fxLayer, glow, ring, deco, worldWrap, burstL);
+  const juiceL = el('g', { 'pointer-events': 'none' });
+  world.append(trailL, linkL, twigL, nodeL, labelL, juiceL);
+  svg.append(body, bg, fxLayer, glow, ring, deco, worldWrap);
   const fx = createFx(fxLayer);
+  const juice = createJuice(juiceL);
 
   let model = null; let cam = { x: 0, y: 0 }; let curNode = null; let optNodes = new Map(); let busy = false;
   const setCam = (c) => { cam = c; world.setAttribute('transform', `translate(${(-c.x).toFixed(2)},${(-c.y).toFixed(2)})`); };
@@ -64,8 +64,8 @@ export function createRenderer(svg, handlers) {
   onFrame((t) => {
     if (!model) return;
     const s = model.settings;
-    if (curNode) {
-      const b = s.reducedMotion ? 0 : s.breathe * Math.sin(t * 2 * Math.PI / (3.2 / s.speed));
+    if (curNode && !busy && !curNode.body.classList.contains('undoJuice')) {
+      const b = motionOff(s) ? 0 : s.breathe * Math.sin(t * 2 * Math.PI / (3.2 / s.speed));
       curNode.body.setAttribute('transform', `scale(${(1 + b).toFixed(4)})`);
     }
     fx(t, { stance: model.cur.stance, level: model.level }, s);
@@ -119,15 +119,14 @@ export function createRenderer(svg, handlers) {
   }
 
   function show(m, { enter = true } = {}) {
-    model = m; const s = m.settings; const fast = s.reducedMotion;
+    model = m; const s = m.settings; const fast = motionOff(s);
     drawBackground(m); drawRing(m); setCam(m.cam);
-    trailL.replaceChildren(); linkL.replaceChildren(); twigL.replaceChildren(); nodeL.replaceChildren(); labelL.replaceChildren(); optNodes = new Map();
-    // Trail: previous steps of the chain.
+    trailL.replaceChildren(); linkL.replaceChildren(); twigL.replaceChildren(); nodeL.replaceChildren(); labelL.replaceChildren(); juiceL.replaceChildren(); optNodes = new Map();
     const n = m.steps.length;
     for (let k = Math.max(1, n - 7); k < n; k++) {
       const a = m.pos[k - 1], b = m.pos[k]; const age = n - 1 - k; const stc = STANCES[m.steps[k].stance].color;
-      const ctrl = bezierCtrl(a, b, s.bend);
-      trailL.append(el('path', { d: `M${a.x},${a.y} Q${ctrl.x},${ctrl.y} ${b.x},${b.y}`, fill: 'none', stroke: stc, 'stroke-width': s.line + 2, 'stroke-opacity': Math.max(0.15, 0.7 - age * 0.1), 'stroke-linecap': 'round' }));
+      const pts = octilinearRoute(a, b, s.bend);
+      trailL.append(el('path', { d: polylinePath(pts), ...LINE, stroke: stc, 'stroke-width': s.line + 2, 'stroke-opacity': Math.max(0.15, 0.7 - age * 0.1) }));
     }
     for (let k = Math.max(0, n - 7); k < n - 1; k++) {
       const st = m.steps[k]; const age = n - 1 - k; const p = m.pos[k]; const mv = m.cat.move(st.id);
@@ -135,23 +134,18 @@ export function createRenderer(svg, handlers) {
       g.setAttribute('transform', `translate(${p.x},${p.y})`); g.setAttribute('opacity', Math.max(0.2, 0.75 - age * 0.12)); g.setAttribute('pointer-events', 'none');
       trailL.append(g);
     }
-    // Current node.
     const cm = m.cat.move(m.cur.id);
     curNode = nodeEl(m.cur.id, cm, m.cur.stance, { r: 34, center: true, label: s.labels ? (m.cur.id === IDLE ? 'Idle' : cm.label) : null });
     curNode.g.setAttribute('transform', `translate(${m.cam.x},${m.cam.y})`);
-    // Options, links and twigs.
     for (const o of m.options) {
       const from = m.cam, to = { x: m.cam.x + o.x, y: m.cam.y + o.y };
-      const ctrl = bezierCtrl(from, to, o.link.bend);
+      const pts = octilinearRoute(from, to, o.link.bend);
       const stc = STANCES[o.resultStance].color;
-      let link = null;
-      if (s.style !== 'direction') {
-        link = el('path', { fill: 'none', stroke: stc, 'stroke-width': s.line, 'stroke-opacity': 0.75, 'stroke-linecap': 'round', 'stroke-dasharray': o.move.stub ? '4 5' : null });
-        linkL.append(link);
-      }
+      const link = el('path', { ...LINE, stroke: stc, 'stroke-width': s.line, 'stroke-opacity': 0.75, 'stroke-dasharray': o.move.stub ? '4 5' : null });
+      linkL.append(link);
       const node = nodeEl(o.id, o.move, o.resultStance, { dirChevron: s.style === 'direction' ? o.screen : null });
       nodeL.append(node.g);
-      let lab = null; // labels sit under their node, in a top layer so neighbouring nodes never hide them
+      let lab = null;
       if (s.labels) { lab = el('text', { class: 'label' }, o.id === IDLE ? 'Idle' : o.move.label); labelL.append(lab); }
       const labOff = { x: 0, y: 28 + 14 };
       let twigG = null;
@@ -159,20 +153,21 @@ export function createRenderer(svg, handlers) {
         twigG = el('g', { opacity: 0 });
         const k = o.twigs.length;
         o.twigs.forEach((tw, i) => {
-          const d = o.screen + (i - (k - 1) / 2) * 22; const tp = polar(d, 46);
-          const q = { x: to.x + tp.x, y: to.y + tp.y }; const sp = polar(d, 30);
-          twigG.append(el('line', { x1: to.x + sp.x, y1: to.y + sp.y, x2: q.x, y2: q.y, stroke: STANCES[tw.stance].color, 'stroke-width': Math.max(1, s.line - 0.5), 'stroke-opacity': 0.55 }));
-          twigG.append(el('circle', { cx: q.x, cy: q.y, r: 5.5, fill: STANCES[tw.stance].color, stroke: INK, 'stroke-width': 1.4 }));
+          const d = o.screen + (i - (k - 1) / 2) * 22; const tipRel = polar(d, 46); const startRel = polar(d, 30);
+          const twPts = octilinearRoute({ x: to.x + startRel.x, y: to.y + startRel.y }, { x: to.x + tipRel.x, y: to.y + tipRel.y }, o.link.bend);
+          const end = twPts[twPts.length - 1];
+          twigG.append(el('path', { d: polylinePath(twPts), ...LINE, stroke: STANCES[tw.stance].color, 'stroke-width': Math.max(1, s.line - 0.5), 'stroke-opacity': 0.55 }));
+          twigG.append(el('circle', { cx: end.x, cy: end.y, r: 5.5, fill: STANCES[tw.stance].color, stroke: INK, 'stroke-width': 1.4 }));
         });
         twigL.append(twigG);
       }
-      optNodes.set(o.id, { o, node, link, twigG, to, lab });
+      optNodes.set(o.id, { o, node, link, twigG, to, lab, pts });
       const place = (p) => {
-        const e = curveFn(o.link.curve, s.overshoot)(p); const pt = bezierAt(from, ctrl, to, Math.min(1.15, e));
+        const e = curveFn(o.link.curve, s.overshoot)(p); const u = Math.min(1, e); const pt = polylineAt(pts, u);
         node.g.setAttribute('transform', `translate(${pt.x.toFixed(1)},${pt.y.toFixed(1)}) scale(${(0.35 + 0.65 * Math.min(1, p * 1.6)).toFixed(3)})`);
         node.g.setAttribute('opacity', Math.min(1, p * 2.5).toFixed(2));
         if (lab) { lab.setAttribute('x', (pt.x + labOff.x).toFixed(1)); lab.setAttribute('y', (pt.y + labOff.y).toFixed(1)); lab.setAttribute('opacity', Math.max(0, (p - 0.5) * 2).toFixed(2)); }
-        if (link) link.setAttribute('d', s.style === 'tree' ? partialQuad(from, ctrl, to, Math.min(1, e)) : `M${from.x},${from.y} L${(from.x + (to.x - from.x) * Math.min(1, e)).toFixed(1)},${(from.y + (to.y - from.y) * Math.min(1, e)).toFixed(1)}`);
+        link.setAttribute('d', partialPolyline(pts, u));
         if (twigG) twigG.setAttribute('opacity', Math.max(0, (p - 0.6) / 0.4).toFixed(2));
       };
       if (enter && !fast) { place(0); tween(o.link.ms / s.speed, place, { delay: 0 }); } else place(1);
@@ -180,25 +175,41 @@ export function createRenderer(svg, handlers) {
     nodeL.append(curNode.g);
   }
 
-  function burst(x, y, color) {
-    const c = el('circle', { cx: x, cy: y, r: 20, fill: 'none', stroke: color, 'stroke-width': 4 });
-    burstL.append(c);
-    tween(260, (p) => { c.setAttribute('r', (20 + 34 * p).toFixed(1)); c.setAttribute('opacity', (1 - p).toFixed(2)); c.setAttribute('stroke-width', (4 * (1 - p) + 0.5).toFixed(1)); }, { done: () => c.remove() });
-  }
+  function bump(el, cls) { el.classList.remove(cls); void el.getBBox(); el.classList.add(cls); }
 
-  // Selecting an option: pop + glow burst, then the sphere travels forward along the chain to it.
+  // Selecting an option: squash-pop + stance burst + path pulse, then travel along the octilinear route.
   function travelTo(id, done) {
     const hit = optNodes.get(id); if (!hit || !model) return false;
     if (busy) cancelAll();
     const s = model.settings; const o = hit.o; busy = true;
-    hit.node.body.classList.remove('pop'); void hit.node.body.getBBox(); hit.node.body.classList.add('pop');
-    burst(o.x, o.y, STANCES[o.resultStance].color);
-    tween(s.reducedMotion ? 0 : 160, (p) => { glow.style.opacity = (s.glow * (1 - 0.5 * p) + 0.2).toFixed(2); });
-    for (const [k, v] of optNodes) if (k !== id) { v.node.g.setAttribute('opacity', 0.15); if (v.lab) v.lab.setAttribute('opacity', 0.1); if (v.link) v.link.setAttribute('stroke-opacity', 0.1); if (v.twigG) v.twigG.setAttribute('opacity', 0); }
+    bump(hit.node.body, 'selectJuice');
+    juice.playSelect({
+      x: hit.to.x, y: hit.to.y, stance: o.resultStance, path: hit.pts, color: STANCES[o.resultStance].color, settings: s,
+      neighbors: [...optNodes].filter(([k]) => k !== id).flatMap(([, v]) => [v.node.g, v.twigG, v.link].filter(Boolean)),
+    });
+    tween(motionOff(s) ? 0 : 160, (p) => { glow.style.opacity = (s.glow * (1 - 0.5 * p) + 0.2).toFixed(2); });
     curNode.g.setAttribute('opacity', 0.5);
-    const from = { ...cam }, to = hit.to; const ctrl = bezierCtrl(from, to, o.link.bend * 0.5);
+    const from = { ...cam }, to = hit.to, pts = hit.pts.length > 1 ? hit.pts : octilinearRoute(from, to, o.link.bend);
     const ease = curveFn(s.curve === 'linear' ? 'linear' : 'easeOut', s.overshoot);
-    tween(s.reducedMotion ? 0 : s.travelMs / s.speed, (p) => setCam(bezierAt(from, ctrl, to, ease(p))), { done: () => { busy = false; done(); } });
+    const ms = motionOff(s) ? 0 : s.travelMs / s.speed;
+    tween(ms, (p) => setCam(polylineAt(pts, ease(p))), { done: () => { busy = false; done(); } });
+    return true;
+  }
+
+  // Undo: line retracts back along its path, current node reverse-squashes, cool-tone flicker, camera rewinds.
+  function rewind(done) {
+    if (!model || model.steps.length < 2) return false;
+    if (busy) cancelAll();
+    const s = model.settings; const n = model.steps.length;
+    const dest = model.pos[n - 2], here = model.pos[n - 1];
+    const fwd = octilinearRoute(dest, here, s.bend); const back = [...fwd].reverse();
+    busy = true;
+    bump(curNode.body, 'undoJuice');
+    juice.playUndo({ x: here.x, y: here.y, path: fwd, color: STANCES[model.cur.stance].color, settings: s });
+    for (const [, v] of optNodes) { v.node.g.setAttribute('opacity', 0.12); if (v.lab) v.lab.setAttribute('opacity', 0.08); if (v.link) v.link.setAttribute('stroke-opacity', 0.08); if (v.twigG) v.twigG.setAttribute('opacity', 0); }
+    const ease = curveFn(s.curve === 'linear' ? 'linear' : 'easeOut', s.overshoot);
+    const ms = juiceMs(PRESETS.undo.retractMs, s);
+    tween(ms, (p) => setCam(polylineAt(back, ease(p))), { done: () => { busy = false; done(); } });
     return true;
   }
 
@@ -207,5 +218,5 @@ export function createRenderer(svg, handlers) {
     for (const o of model.options) { let d = Math.abs((((o.screen - deg) % 360) + 540) % 360 - 180); if (o.r > R_INNER) d += 4; if (d < bd) { bd = d; best = o; } }
     return best;
   }
-  return { show, travelTo, optionAtAngle, get model() { return model; }, get busy() { return busy; } };
+  return { show, travelTo, rewind, optionAtAngle, get model() { return model; }, get busy() { return busy; } };
 }

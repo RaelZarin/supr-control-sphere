@@ -74,7 +74,12 @@ const act = {
     renderer.travelTo(id, () => { app.path = [...app.path, id]; app.hover = null; refresh(true); renderBuilder($('#builder'), app); });
   },
   center() { if (app.path.length) go([]); else { svg.classList.remove('miss'); void svg.getBBox(); svg.classList.add('miss'); } },
-  undo() { if (app.path.length) go(app.path.slice(0, -1)); },
+  undo() {
+    if (!app.path.length) return;
+    navigator.vibrate?.(8);
+    const finish = () => { app.path = app.path.slice(0, -1); app.hover = null; refresh(true); renderBuilder($('#builder'), app); };
+    if (!renderer.rewind(finish)) finish();
+  },
   reset() { go([]); },
   rotate(d) { app.rotate(d); },
   miss() { svg.classList.remove('miss'); void svg.getBBox(); svg.classList.add('miss'); },

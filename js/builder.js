@@ -63,7 +63,7 @@ export function renderBuilder(root, app) {
       h('div', { class: 'grid3' },
         h('label', {}, 'Curve', h('select', { onChange: (e) => setL({ curve: e.target.value || undefined }) }, [['', 'Default'], ...CURVES.map((c) => [c, c])].map(([v, t]) => { const op = h('option', { value: v }, t); if ((L.curve || '') === v) op.selected = true; return op; }))),
         h('label', {}, 'ms', h('input', { type: 'number', min: 60, max: 1500, step: 10, value: L.ms ?? '', placeholder: String(app.settings.travelMs), onChange: (e) => setL({ ms: num(e.target.value) }) })),
-        h('label', {}, 'Bend', h('input', { type: 'number', min: -1, max: 1, step: 0.05, value: L.bend ?? '', placeholder: String(app.settings.bend), onChange: (e) => setL({ bend: num(e.target.value) }) }))),
+        h('label', {}, 'Elbow', h('input', { type: 'number', min: -1, max: 1, step: 0.05, value: L.bend ?? '', placeholder: String(app.settings.bend), onChange: (e) => setL({ bend: num(e.target.value) }) }))),
       select('Direction', DIRS.find((d) => d.deg === over)?.id || 'auto', DIRS.map((d) => [d.id, d.label]), (v) => app.updateTree((t) => { const d = DIRS.find((x) => x.id === v); if (d?.deg == null) delete t.placement[key]; else t.placement[key] = d.deg; })));
   });
   const existing = tree.moves.filter((x) => x.id !== IDLE && !m.options.some((o) => o.id === x.id));
