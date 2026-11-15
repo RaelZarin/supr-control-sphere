@@ -1,0 +1,742 @@
+{
+ "source": {
+  "repo": "RaelZarin/PROJECT_SUPR_v1",
+  "ref": "origin/playtest/momentum-all",
+  "commit": "d04df734",
+  "files": [
+   "data/combat/momentum_moves.json",
+   "data/combat/momentum_graph.json",
+   "data/combat/momentum_star_layout.json"
+  ]
+ },
+ "tree": {
+  "schema": 1,
+  "moves": [
+   {
+    "id": "light_attack",
+    "label": "Light attack",
+    "height": "mid",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.25,
+    "damage": 0,
+    "stumble": 1,
+    "stances": [
+     "standing"
+    ]
+   },
+   {
+    "id": "medium_attack",
+    "label": "Medium attack",
+    "height": "mid",
+    "tier": 1,
+    "windup": 0.5,
+    "recovery": 0.75,
+    "damage": 2,
+    "stances": [
+     "standing"
+    ]
+   },
+   {
+    "id": "light_punch",
+    "label": "Light punch",
+    "height": "mid",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.25,
+    "damage": 0,
+    "stumble": 1,
+    "stances": [
+     "standing"
+    ]
+   },
+   {
+    "id": "light_strike",
+    "label": "Light strike",
+    "height": "mid",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.5,
+    "damage": 1,
+    "stances": [
+     "standing"
+    ]
+   },
+   {
+    "id": "reverse_stroke",
+    "label": "Reverse stroke",
+    "height": "mid",
+    "tier": 1,
+    "windup": 0.5,
+    "recovery": 0.75,
+    "damage": 2,
+    "stances": [
+     "standing"
+    ]
+   },
+   {
+    "id": "lunge",
+    "label": "Lunge",
+    "height": "mid",
+    "tier": 2,
+    "windup": 0.5,
+    "recovery": 1.5,
+    "damage": 2,
+    "stumble": 1,
+    "advance": 1,
+    "stances": [
+     "standing"
+    ]
+   },
+   {
+    "id": "overhand",
+    "label": "Overhand",
+    "height": "high",
+    "tier": 3,
+    "spend": 2,
+    "windup": 0,
+    "action": 1,
+    "recovery": 0,
+    "damage": 4,
+    "stances": [
+     "standing",
+     "midair"
+    ]
+   },
+   {
+    "id": "uppercut",
+    "label": "Uppercut",
+    "height": "low",
+    "tier": 0,
+    "windup": 0.5,
+    "recovery": 0.5,
+    "damage": 1,
+    "result_stance": "standing",
+    "stances": [
+     "crouch"
+    ]
+   },
+   {
+    "id": "roll",
+    "label": "Roll",
+    "height": "low",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.25,
+    "advance": 2,
+    "crouch_advance": 1,
+    "stances": [
+     "crouch",
+     "standing"
+    ]
+   },
+   {
+    "id": "hop",
+    "label": "Hop",
+    "height": "high",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.25,
+    "stances": [
+     "crouch"
+    ],
+    "stub": true
+   },
+   {
+    "id": "sidestep",
+    "label": "Sidestep",
+    "height": "mid",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.25,
+    "stances": [
+     "standing"
+    ]
+   },
+   {
+    "id": "kick",
+    "label": "Kick",
+    "height": "mid",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.25,
+    "damage": 0,
+    "effect": "kick",
+    "anim": "front_kick",
+    "stances": [
+     "standing"
+    ]
+   },
+   {
+    "id": "sweep_kick",
+    "label": "Sweep kick",
+    "height": "low",
+    "tier": 1,
+    "windup": 0.5,
+    "recovery": 0.5,
+    "damage": 1,
+    "result_stance": "crouch",
+    "stances": [
+     "crouch"
+    ]
+   },
+   {
+    "id": "running",
+    "label": "Running",
+    "height": "mid",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.25,
+    "stances": [
+     "standing"
+    ],
+    "stub": true
+   },
+   {
+    "id": "charge",
+    "label": "Charge",
+    "height": "mid",
+    "tier": 2,
+    "windup": 0.5,
+    "recovery": 1,
+    "damage": 2,
+    "effect": "charge",
+    "stances": [
+     "standing"
+    ]
+   },
+   {
+    "id": "block",
+    "label": "Block",
+    "height": "mid",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.5,
+    "stances": [
+     "standing"
+    ],
+    "stub": true
+   },
+   {
+    "id": "parry",
+    "label": "Parry",
+    "height": "mid",
+    "tier": 1,
+    "windup": 0.25,
+    "recovery": 0.25,
+    "stances": [
+     "standing"
+    ],
+    "stub": true
+   },
+   {
+    "id": "neutral_air",
+    "label": "Neutral air",
+    "height": "high",
+    "tier": 0,
+    "windup": 0.5,
+    "action": 1,
+    "recovery": 1,
+    "damage": 0,
+    "effect": "jump",
+    "anim": "neutral_air",
+    "result_stance": "midair",
+    "stances": [
+     "standing"
+    ]
+   },
+   {
+    "id": "forward_air",
+    "label": "Forward air",
+    "height": "high",
+    "tier": 0,
+    "windup": 0.5,
+    "action": 1,
+    "recovery": 1,
+    "damage": 0,
+    "effect": "jump",
+    "anim": "forward_air",
+    "result_stance": "midair",
+    "stances": [
+     "standing"
+    ]
+   },
+   {
+    "id": "back_air",
+    "label": "Back air",
+    "height": "high",
+    "tier": 0,
+    "windup": 0.5,
+    "action": 1,
+    "recovery": 1,
+    "damage": 0,
+    "effect": "jump",
+    "anim": "back_air_flip",
+    "result_stance": "midair",
+    "stances": [
+     "standing"
+    ]
+   },
+   {
+    "id": "deflect",
+    "label": "Deflect",
+    "height": "mid",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.25,
+    "stances": [
+     "standing"
+    ],
+    "stub": true
+   },
+   {
+    "id": "crouch",
+    "label": "Crouch",
+    "height": "low",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0,
+    "result_stance": "crouch",
+    "stances": [
+     "standing"
+    ]
+   },
+   {
+    "id": "down_air",
+    "label": "Down air",
+    "height": "high",
+    "tier": 1,
+    "spend": 0,
+    "windup": 0.25,
+    "action": 0.75,
+    "recovery": 0,
+    "damage": 2,
+    "effect": "down_air",
+    "anim": "down_air",
+    "stances": [
+     "midair"
+    ]
+   },
+   {
+    "id": "kick_off",
+    "label": "Kick-off",
+    "height": "high",
+    "tier": 0,
+    "spend": 0,
+    "windup": 0.25,
+    "action": 0.25,
+    "recovery": 0,
+    "damage": 0,
+    "effect": "kick_off",
+    "anim": "kick_off",
+    "stances": [
+     "midair"
+    ]
+   },
+   {
+    "id": "idle",
+    "label": "Idle",
+    "height": "mid",
+    "tier": 0,
+    "windup": 0,
+    "action": 0,
+    "recovery": 0,
+    "result_stance": "standing",
+    "stances": [
+     "standing",
+     "crouch",
+     "midair"
+    ]
+   }
+  ],
+  "edges": [
+   {
+    "from": "idle",
+    "to": "light_attack",
+    "stance": "standing"
+   },
+   {
+    "from": "idle",
+    "to": "running",
+    "stance": "standing"
+   },
+   {
+    "from": "idle",
+    "to": "neutral_air",
+    "stance": "standing"
+   },
+   {
+    "from": "idle",
+    "to": "forward_air",
+    "stance": "standing"
+   },
+   {
+    "from": "idle",
+    "to": "back_air",
+    "stance": "standing"
+   },
+   {
+    "from": "idle",
+    "to": "sidestep",
+    "stance": "standing"
+   },
+   {
+    "from": "idle",
+    "to": "deflect",
+    "stance": "standing"
+   },
+   {
+    "from": "idle",
+    "to": "block",
+    "stance": "standing"
+   },
+   {
+    "from": "idle",
+    "to": "crouch",
+    "stance": "standing"
+   },
+   {
+    "from": "idle",
+    "to": "kick",
+    "stance": "standing"
+   },
+   {
+    "from": "light_attack",
+    "to": "medium_attack"
+   },
+   {
+    "from": "running",
+    "to": "charge"
+   },
+   {
+    "from": "sidestep",
+    "to": "lunge"
+   },
+   {
+    "from": "sidestep",
+    "to": "parry"
+   },
+   {
+    "from": "idle",
+    "to": "roll",
+    "stance": "crouch"
+   },
+   {
+    "from": "idle",
+    "to": "uppercut",
+    "stance": "crouch"
+   },
+   {
+    "from": "idle",
+    "to": "sweep_kick",
+    "stance": "crouch"
+   },
+   {
+    "from": "roll",
+    "to": "lunge"
+   },
+   {
+    "from": "lunge",
+    "to": "idle"
+   },
+   {
+    "from": "lunge",
+    "to": "light_attack"
+   },
+   {
+    "from": "neutral_air",
+    "to": "kick_off"
+   },
+   {
+    "from": "neutral_air",
+    "to": "idle"
+   },
+   {
+    "from": "forward_air",
+    "to": "down_air"
+   },
+   {
+    "from": "forward_air",
+    "to": "overhand"
+   },
+   {
+    "from": "forward_air",
+    "to": "idle"
+   },
+   {
+    "from": "back_air",
+    "to": "down_air"
+   },
+   {
+    "from": "back_air",
+    "to": "overhand"
+   },
+   {
+    "from": "back_air",
+    "to": "idle"
+   },
+   {
+    "from": "idle",
+    "to": "overhand",
+    "stance": "midair"
+   },
+   {
+    "from": "idle",
+    "to": "down_air",
+    "stance": "midair"
+   },
+   {
+    "from": "idle",
+    "to": "idle",
+    "stance": "midair"
+   },
+   {
+    "from": "overhand",
+    "to": "idle"
+   },
+   {
+    "from": "down_air",
+    "to": "idle"
+   },
+   {
+    "from": "kick_off",
+    "to": "idle"
+   },
+   {
+    "from": "charge",
+    "to": "idle"
+   },
+   {
+    "from": "medium_attack",
+    "to": "idle"
+   },
+   {
+    "from": "parry",
+    "to": "idle"
+   },
+   {
+    "from": "deflect",
+    "to": "idle"
+   },
+   {
+    "from": "block",
+    "to": "idle"
+   }
+  ],
+  "layouts": {
+   "standing": {
+    "center": "idle",
+    "arms": [
+     {
+      "id": "light_attack",
+      "angle": -90,
+      "next": [
+       {
+        "id": "medium_attack",
+        "angle": -90
+       }
+      ]
+     },
+     {
+      "id": "running",
+      "angle": -54,
+      "next": [
+       {
+        "id": "charge",
+        "angle": -54
+       }
+      ]
+     },
+     {
+      "id": "forward_air",
+      "angle": -18
+     },
+     {
+      "id": "neutral_air",
+      "angle": 18
+     },
+     {
+      "id": "back_air",
+      "angle": 54
+     },
+     {
+      "id": "sidestep",
+      "angle": 90,
+      "next": [
+       {
+        "id": "lunge",
+        "angle": 76
+       },
+       {
+        "id": "parry",
+        "angle": 104
+       }
+      ]
+     },
+     {
+      "id": "deflect",
+      "angle": 126
+     },
+     {
+      "id": "block",
+      "angle": 162
+     },
+     {
+      "id": "crouch",
+      "angle": 198,
+      "next": [
+       {
+        "id": "roll",
+        "angle": 198
+       },
+       {
+        "id": "sweep_kick",
+        "angle": 198
+       },
+       {
+        "id": "uppercut",
+        "angle": 198
+       }
+      ]
+     },
+     {
+      "id": "kick",
+      "angle": 234
+     }
+    ]
+   },
+   "crouch": {
+    "center": "idle",
+    "arms": [
+     {
+      "id": "roll",
+      "angle": -90,
+      "next": [
+       {
+        "id": "lunge",
+        "angle": -90
+       }
+      ]
+     },
+     {
+      "id": "uppercut",
+      "angle": 30
+     },
+     {
+      "id": "sweep_kick",
+      "angle": 150
+     }
+    ]
+   },
+   "after_lunge": {
+    "center": "lunge",
+    "arms": [
+     {
+      "id": "idle",
+      "angle": -90
+     },
+     {
+      "id": "light_attack",
+      "angle": 90
+     }
+    ]
+   },
+   "midair": {
+    "center": "idle",
+    "arms": [
+     {
+      "id": "overhand",
+      "angle": -90
+     },
+     {
+      "id": "down_air",
+      "angle": 0
+     },
+     {
+      "id": "idle",
+      "angle": 90
+     }
+    ]
+   },
+   "after_neutral_air": {
+    "center": "neutral_air",
+    "arms": [
+     {
+      "id": "kick_off",
+      "angle": -90
+     },
+     {
+      "id": "idle",
+      "angle": 90
+     }
+    ]
+   },
+   "after_forward_air": {
+    "center": "forward_air",
+    "arms": [
+     {
+      "id": "down_air",
+      "angle": -90
+     },
+     {
+      "id": "overhand",
+      "angle": 0
+     },
+     {
+      "id": "idle",
+      "angle": 90
+     }
+    ]
+   },
+   "after_back_air": {
+    "center": "back_air",
+    "arms": [
+     {
+      "id": "down_air",
+      "angle": -90
+     },
+     {
+      "id": "overhand",
+      "angle": 0
+     },
+     {
+      "id": "idle",
+      "angle": 90
+     }
+    ]
+   }
+  },
+  "sectors": [
+   {
+    "id": "high",
+    "height": "high",
+    "start": -135,
+    "end": -45
+   },
+   {
+    "id": "mid_right",
+    "height": "mid",
+    "start": -45,
+    "end": 45
+   },
+   {
+    "id": "low",
+    "height": "low",
+    "start": 45,
+    "end": 135
+   },
+   {
+    "id": "mid_left",
+    "height": "mid",
+    "start": 135,
+    "end": 225
+   }
+  ],
+  "accrual": {
+   "move": 0.25,
+   "kill": 0.5
+  },
+  "links": {},
+  "placement": {}
+ }
+}

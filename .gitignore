@@ -1,0 +1,10 @@
+.secret
+data/state.json
+data/presets/
+logs/
+bin/
+run/
+node_modules/
+*.log
+.DS_Store
+.env
