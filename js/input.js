@@ -21,7 +21,7 @@ export function bindInput(svg, r, act) {
     const id = down.id, held = down.held; down = null;
     if (held) return;
     if (dist < 14) {
-      if (id === '__center') act.center(); else if (id) act.select(id);
+      if (id === '__center') act.center(); else if (id === '__slot') act.openSlot?.(); else if (id) act.select(id);
       return;
     }
     if (dist > 26) { const o = r.optionAtAngle((Math.atan2(dy, dx) * 180) / Math.PI, 55); if (o) act.select(o.id); else act.miss(); }

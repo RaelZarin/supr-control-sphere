@@ -35,5 +35,5 @@ export function buildModel(cat, settingsIn, path) {
   const ramp = Math.min(1, Math.max(0, (depth - settings.fxStart + 1) / span));
   const level = ramp * settings.fxMax * (settings.fx[cur.stance] ?? 1);
   const depthLevel = Math.min(1, depth / Math.max(1, settings.fxFull));
-  return { cat, settings, steps, pos, cur, cam: pos[pos.length - 1], options, depth, level, depthLevel };
+  return { cat, settings, steps, pos, cur, cam: pos[pos.length - 1], options, depth, level, depthLevel, empty: options.length === 0 };
 }

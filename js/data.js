@@ -4,7 +4,7 @@ export const STANCES = {
   crouch: { name: 'Crouching Tiger', short: 'Crouched', color: '#6e6f7d', deep: '#2a2540', ink: '#ede1a9' },
   midair: { name: 'Leaping Dragon', short: 'In air', color: '#f4eecf', deep: '#e8b84a', ink: '#232147' },
 };
-export const PALETTE = { panel: '#232147', stage: '#1b1938', text: '#ede1a9', primary: '#3e6c9c', danger: '#ea5439', ap: '#e88a4a', heal: '#b4bda5', neutral: '#545a78' };
+export const PALETTE = { panel: '#232147', stage: '#1a1830', text: '#ede1a9', primary: '#ede1a9', danger: '#ea5439', ap: '#e88a4a', heal: '#b4bda5', neutral: '#545a78' };
 export const HEIGHTS = ['high', 'mid', 'low'];
 export const CURVES = ['overshoot', 'spring', 'easeOut', 'snap', 'linear'];
 export const DIRS = [ // Godot degrees: 0 = right, -90 = up (front)
@@ -40,15 +40,18 @@ export function makeCatalog(tree) {
     }
     return out;
   };
-  // legal_next: outgoing edges from prev; if none, the stance's idle arms.
+  // legal_next: outgoing edges from prev. Catalog enders still fall back to that stance's idle arms;
+  // childless custom moves stay empty so a new branch is built by hand (optional link-back is an explicit edge).
   const legalNext = (stance, prev) => {
     const from = prev || IDLE;
     let f = outgoing(from, stance);
-    if (!f.length && from !== IDLE) f = outgoing(IDLE, stance);
+    if (!f.length && from !== IDLE && !move(from).custom) f = outgoing(IDLE, stance);
     return f;
   };
-  // The node whose edges are actually shown: prev, or Idle when prev has no follow-ups (e.g. Crouch -> crouch idle arms).
-  const sourceOf = (stance, prev) => (prev && prev !== IDLE && outgoing(prev, stance).length ? prev : IDLE);
+  const sourceOf = (stance, prev) => {
+    if (prev && prev !== IDLE && (outgoing(prev, stance).length || move(prev).custom)) return prev;
+    return IDLE;
+  };
   const resultStance = (id, current) => {
     return move(id).result_stance || current; // Idle's data says standing: in air it means land
 

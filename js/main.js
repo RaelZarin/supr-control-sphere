@@ -64,7 +64,7 @@ function renderInfo() {
   const facts = [['Height', mv.height], ['Tier', mv.tier], ['Windup', mv.windup], ['Action', mv.action], ['Recovery', mv.recovery], ['Damage', mv.damage], ['Spend', mv.spend], ['Advance', mv.advance]].filter(([, v]) => v != null);
   $('#info').replaceChildren(
     h('div', { class: 'infoHead' }, h('b', {}, id === IDLE ? 'Idle' : mv.label), o ? h('span', { class: 'muted' }, ' · option') : h('span', { class: 'muted' }, ' · current'), mv.stub ? h('span', { class: 'tag' }, 'stub') : null, mv.custom ? h('span', { class: 'tag' }, 'custom') : null),
-    h('div', { class: 'muted small' }, id === IDLE ? `Options: ${m.options.length}` : `${STANCES[performed].name} → ${STANCES[result].name}`),
+    h('div', { class: 'muted small' }, m.empty && !o ? 'No follow-ups yet — use + to add, or link back to Idle' : (id === IDLE ? `Options: ${m.options.length}` : `${STANCES[performed].name} → ${STANCES[result].name}`)),
     h('div', { class: 'facts' }, facts.map(([k, v]) => h('span', {}, h('i', {}, k), ' ', String(v)))));
 }
 
@@ -88,7 +88,8 @@ const act = {
   rotate(d) { app.rotate(d); },
   miss() { svg.classList.remove('miss'); void svg.getBBox(); svg.classList.add('miss'); },
   hover(id) { app.hover = id; renderInfo(); plus?.hover(id); },
-  longPress(id) { return plus?.longPress(id); },
+  longPress(id) { return plus?.longPress(id === '__slot' ? '__center' : id); },
+  openSlot() { plus?.openCurrent(); },
 };
 
 app.rotate = (d) => {

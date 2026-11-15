@@ -5,11 +5,11 @@ import { curveFn, tween, onFrame, cancelAll } from './anim.js';
 import { createFx } from './fx.js';
 import { octilinearRoute, polylinePath, polylineAt, partialPolyline } from './route.js';
 import { createJuice, motionOff, juiceMs, PRESETS } from './juice.js';
-import { PIXEL, VIEW, MOTIF, diamondPath, diamondWedge, diamondAtAngle, facetFills } from './shape.js';
+import { PIXEL, VIEW, CHAMFER, MOTIF, snap, diamondPath, diamondWedge, diamondAtAngle, facetFills, embossPaths, consumeAmount } from './shape.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) if (v != null) e.setAttribute(k, v); for (const c of kids) if (c) e.append(c); return e; };
-const SECTOR_TINT = { high: '#5294cd', mid: '#545a78', low: '#2c2449' };
+const SECTOR_TINT = { high: MOTIF.creamDeep, mid: MOTIF.stone, low: MOTIF.void };
 const INK = MOTIF.ink;
 export { VIEW };
 const LINE = { fill: 'none', 'stroke-linejoin': 'miter', 'stroke-linecap': 'square', 'stroke-miterlimit': 3 };
@@ -51,6 +51,11 @@ export function createRenderer(svg, handlers) {
   const facets = el('g', { 'pointer-events': 'none', opacity: 0.34, 'shape-rendering': 'crispEdges' });
   facetFills().forEach((f) => facets.append(el('path', { d: f.d, fill: f.fill })));
   const bg = el('g', { 'pointer-events': 'none' }); const fxLayer = el('g', { 'pointer-events': 'none' });
+  const ep = embossPaths();
+  const emboss = el('g', { 'pointer-events': 'none', 'shape-rendering': 'crispEdges' },
+    el('path', { d: ep.shadow, fill: 'none', stroke: MOTIF.shadow, 'stroke-width': PIXEL + 2, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square' }),
+    el('path', { d: ep.highlight, fill: 'none', stroke: MOTIF.cream, 'stroke-width': PIXEL + 2, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square' }),
+    el('path', { d: ep.outer, fill: 'none', stroke: MOTIF.creamDeep, 'stroke-width': 3, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square' }));
   const glow = el('path', { d: diamondPath(R_SPHERE + PIXEL), ...LINE, filter: 'url(#glowF)', 'pointer-events': 'none' });
   const ring = el('path', { d: diamondPath(), class: 'ring', ...LINE, 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
   const deco = el('g', { 'pointer-events': 'none' });
@@ -58,7 +63,7 @@ export function createRenderer(svg, handlers) {
   const trailL = el('g', { 'pointer-events': 'none' }), linkL = el('g', { 'pointer-events': 'none' }), twigL = el('g', { 'pointer-events': 'none' }), nodeL = el('g'), labelL = el('g', { 'pointer-events': 'none' });
   const juiceL = el('g', { 'pointer-events': 'none' });
   world.append(trailL, linkL, twigL, nodeL, labelL, juiceL);
-  svg.append(body, facets, bg, fxLayer, glow, ring, deco, worldWrap);
+  svg.append(body, facets, bg, emboss, glow, ring, fxLayer, deco, worldWrap);
   const fx = createFx(fxLayer);
   const juice = createJuice(juiceL);
 
@@ -73,7 +78,14 @@ export function createRenderer(svg, handlers) {
       curNode.body.setAttribute('transform', `scale(${(1 + b).toFixed(4)})`);
     }
     fx(t, { stance: model.cur.stance, level: model.level }, s);
+    eatFrame(model.level);
   });
+
+  function eatFrame(level) {
+    const eat = consumeAmount(level);
+    const inset = snap(eat * PIXEL * 5);
+    body.setAttribute('d', diamondPath(Math.max(PIXEL * 16, R_SPHERE - inset), Math.max(PIXEL * 2, CHAMFER - inset / 2)));
+  }
 
   function drawBackground(m) {
     const s = m.settings; bg.replaceChildren(); deco.replaceChildren();
@@ -96,9 +108,13 @@ export function createRenderer(svg, handlers) {
 
   function drawRing(m) {
     const st = STANCES[m.cur.stance]; const dl = m.depthLevel; const s = m.settings;
+    const eat = consumeAmount(m.level); const keep = 1 - eat;
     const col = mix(st.color, st.deep, dl * 0.85);
-    ring.style.stroke = col; ring.style.strokeWidth = (s.line + 1 + 4 * dl).toFixed(1);
-    glow.style.stroke = col; glow.style.strokeWidth = (6 + 16 * dl).toFixed(1); glow.style.opacity = (s.glow * (0.25 + 0.75 * dl)).toFixed(2);
+    ring.style.stroke = col; ring.style.strokeWidth = (s.line + 1 + 4 * dl).toFixed(1); ring.style.opacity = keep.toFixed(2);
+    glow.style.stroke = col; glow.style.strokeWidth = (6 + 16 * dl).toFixed(1); glow.style.opacity = (s.glow * (0.25 + 0.75 * dl) * keep).toFixed(2);
+    emboss.style.opacity = keep.toFixed(2);
+    facets.style.opacity = (0.34 * keep).toFixed(2);
+    eatFrame(m.level);
   }
 
   function nodeEl(id, move, stance, opts = {}) {
@@ -171,6 +187,14 @@ export function createRenderer(svg, handlers) {
         if (twigG) twigG.setAttribute('opacity', Math.max(0, (p - 0.6) / 0.4).toFixed(2));
       };
       if (enter && !fast) { place(0); tween(o.link.ms / s.speed, place, { delay: 0 }); } else place(1);
+    }
+    if (!m.options.length) {
+      const rel = polar(s.facing - 90, R_INNER), to = { x: m.cam.x + rel.x, y: m.cam.y + rel.y };
+      linkL.append(el('path', { d: polylinePath(octilinearRoute(m.cam, to, s.bend)), ...LINE, stroke: MOTIF.cream, 'stroke-width': s.line, 'stroke-opacity': 0.45, 'stroke-dasharray': '5 5' }));
+      const slot = el('g', { class: 'node emptySlot', 'data-id': '__slot', transform: `translate(${to.x},${to.y})` });
+      slot.append(nodeDiamond(24, 'none', MOTIF.cream, 2.2, '5 4'), el('text', { class: 'abbr', y: 6, fill: MOTIF.cream }, '+'));
+      if (s.labels) slot.append(el('text', { class: 'label', y: 40 }, 'Add a move'));
+      nodeL.append(slot);
     }
     nodeL.append(curNode.g);
   }

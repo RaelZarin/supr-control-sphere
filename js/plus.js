@@ -16,6 +16,10 @@ export function parentEdge(parentId, parentStance, to) {
   return { from: parentId, to };
 }
 
+// Stance home: Crouching Tiger idles on the Crouch node; Reed and Dragon return to Idle.
+export function stanceIdleId(stance) { return stance === 'crouch' ? 'crouch' : IDLE; }
+
+
 export function addCustomMove(tree, fields, linkKeyFn) {
   const label = String(fields.label || '').trim();
   if (!label) return { error: 'Give it a name.' };
@@ -32,7 +36,11 @@ export function addCustomMove(tree, fields, linkKeyFn) {
   tree.moves.push(mv); tree.edges.push(edge);
   const dir = DIRS.find((d) => d.id === fields.dir);
   if (dir && dir.deg != null && linkKeyFn) tree.placement[linkKeyFn(edge.from, id, edge.stance)] = dir.deg;
-  return { id, move: mv, edge };
+  let back = null;
+  if (fields.linkBack === 'idle' || fields.linkBack === 'stance') {
+    back = linkExistingMove(tree, { parentId: id, parentStance: stance, toId: fields.linkBack === 'stance' ? stanceIdleId(stance) : IDLE });
+  }
+  return { id, move: mv, edge, linkBack: back };
 }
 
 export function linkExistingMove(tree, { parentId, parentStance, toId }) {
@@ -65,7 +73,7 @@ export function createPlus(app, { layer, pop, svg, onAdd, onLink }) {
 
   function placeButtons() {
     if (!layer) return;
-    const showAll = edit;
+    const showAll = edit || app.model?.empty;
     const items = targets().filter((t) => showAll || t.id === hoverId);
     const wrap = layer.getBoundingClientRect();
     layer.replaceChildren(...items.map((t) => {
@@ -84,7 +92,7 @@ export function createPlus(app, { layer, pop, svg, onAdd, onLink }) {
 
   function open(t, box) {
     openFor = t; pop.hidden = false;
-    const f = { label: '', stance: t.parentStance || 'standing', result: '', height: 'mid', dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '' };
+    const f = { label: '', stance: t.parentStance || 'standing', result: '', height: 'mid', dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '', linkBack: '' };
     const msg = h('div', { class: 'hint' });
     const more = h('div', { class: 'plusMore', hidden: true });
     const existing = app.tree.moves.filter((x) => x.id !== IDLE && x.id !== t.parentId && !app.cat.outgoing(t.parentId === IDLE ? IDLE : t.parentId, t.parentStance).includes(x.id));
@@ -113,6 +121,23 @@ export function createPlus(app, { layer, pop, svg, onAdd, onLink }) {
       h('label', {}, 'Recovery', h('input', { type: 'number', step: 0.25, min: 0, value: f.recovery, onInput: (e) => (f.recovery = e.target.value) })),
       h('label', {}, 'Damage', h('input', { type: 'number', step: 1, min: 0, value: f.damage, onInput: (e) => (f.damage = e.target.value) })),
     );
+    const setBack = (v) => { f.linkBack = f.linkBack === v ? '' : v; pop.querySelectorAll('[data-back]').forEach((x) => x.classList.toggle('on', x.dataset.back === f.linkBack)); };
+    const backBox = () => h('div', { class: 'plusBack' },
+      h('span', { class: 'muted small' }, 'Then'),
+      h('button', { type: 'button', class: 'plusSt', 'data-back': 'idle', onClick: () => setBack('idle') }, 'Link back to Idle'),
+      h('button', { type: 'button', class: 'plusSt', 'data-back': 'stance', onClick: () => setBack('stance') }, 'Link back to this stance\'s idle'),
+    );
+    const laterBack = () => h('div', { class: 'plusBack later' },
+      h('span', { class: 'muted small' }, 'Or link this move back'),
+      h('button', { type: 'button', onClick: () => doBack('idle') }, 'Idle'),
+      h('button', { type: 'button', onClick: () => doBack('stance') }, 'This stance\'s idle'),
+    );
+    const doBack = (kind) => {
+      const res = {};
+      app.updateTree((tree) => Object.assign(res, linkExistingMove(tree, { parentId: t.parentId, parentStance: t.parentStance, toId: kind === 'stance' ? stanceIdleId(t.parentStance) : IDLE })));
+      if (res.error) { msg.textContent = res.error; return; }
+      close(); onLink(res, t);
+    };
     pop.replaceChildren(
       h('div', { class: 'plusHead' }, h('b', {}, `Add under ${t.title}`), h('button', { type: 'button', class: 'small', onClick: close }, '✕')),
       h('div', { class: 'muted small' }, 'Performed in'),
@@ -120,8 +145,10 @@ export function createPlus(app, { layer, pop, svg, onAdd, onLink }) {
       h('label', { class: 'plusName' }, 'Name', h('input', { type: 'text', maxlength: 40, placeholder: 'e.g. Rising slash', autofocus: true, onInput: (e) => (f.label = e.target.value) })),
       h('button', { type: 'button', class: 'plusToggle', onClick: (e) => { more.hidden = !more.hidden; e.target.textContent = more.hidden ? 'More options' : 'Fewer options'; } }, 'More options'),
       more,
+      backBox(),
       h('button', { type: 'button', class: 'primary', onClick: add }, 'Add'),
       existing.length ? h('div', { class: 'plusLink' }, h('span', { class: 'muted small' }, 'Or link existing'), h('select', { onChange: (e) => (pick = e.target.value) }, existing.map((x) => h('option', { value: x.id }, x.label))), h('button', { type: 'button', onClick: link }, 'Link')) : null,
+      laterBack(),
       msg,
     );
     const name = pop.querySelector('.plusName input');
@@ -145,6 +172,12 @@ export function createPlus(app, { layer, pop, svg, onAdd, onLink }) {
     pop.style.left = `${left}px`; pop.style.top = `${top}px`;
   }
 
+  function openCurrent() {
+    const t = targets().find((x) => x.id === '__center');
+    const box = nodeAnchor(svg, '__center') || nodeAnchor(svg, '__slot');
+    if (!t || !box) return false;
+    open(t, box); return true;
+  }
   function setEdit(v) { edit = !!v; if (!edit) hoverId = null; placeButtons(); return edit; }
   function hover(id) { if (edit) return; hoverId = id; placeButtons(); }
   function longPress(id) {
@@ -155,5 +188,5 @@ export function createPlus(app, { layer, pop, svg, onAdd, onLink }) {
 
   document.addEventListener('pointerdown', (e) => { if (openFor && !pop.contains(e.target) && !e.target.closest('.plusBtn')) close(); });
   window.addEventListener('resize', () => { placeButtons(); if (openFor) placePop(nodeAnchor(svg, openFor.id)); });
-  return { sync: placeButtons, setEdit, hover, longPress, close, get edit() { return edit; } };
+  return { sync: placeButtons, setEdit, hover, longPress, openCurrent, close, get edit() { return edit; } };
 }

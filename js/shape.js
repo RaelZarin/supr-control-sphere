@@ -7,7 +7,7 @@ export const PIXEL = 6;
 export const VIEW = 348;
 export const CHAMFER = 24; // width of the flat facets at N/E/S/W
 // Motif swatches (icon look, not the file): void, sage, cream, stone, blue, deep.
-export const MOTIF = { void: '#2c2449', sage: '#b4bda5', cream: '#e4d9aa', stone: '#93938f', blue: '#5294cd', deep: '#5963a3', ink: '#15132b', shadow: '#0c0a1d' };
+export const MOTIF = { void: '#232147', sage: '#b4bda5', cream: '#ede1a9', creamDeep: '#e4d9aa', stone: '#93938f', blue: '#5294cd', deep: '#5963a3', ink: '#15132b', shadow: '#0c0a1d' };
 
 export const snap = (v, p = PIXEL) => Math.round(v / p) * p;
 
@@ -100,7 +100,7 @@ export function diamondWedge(lo, hi, r0, r1, flat = CHAMFER) {
 }
 
 // Bevel colors around the eight flats, starting at the north facet: light, mid, shadow.
-const BEVEL = [MOTIF.cream, MOTIF.sage, MOTIF.blue, MOTIF.deep, MOTIF.shadow, MOTIF.deep, MOTIF.stone, MOTIF.sage];
+const BEVEL = [MOTIF.cream, MOTIF.creamDeep, MOTIF.sage, MOTIF.stone, MOTIF.shadow, MOTIF.ink, MOTIF.stone, MOTIF.sage];
 
 export function facetFills(r = R_SPHERE, flat = CHAMFER, inset = PIXEL * 2) {
   const outer = snapPoly(diamondOctagon(r, flat));
@@ -109,4 +109,54 @@ export function facetFills(r = R_SPHERE, flat = CHAMFER, inset = PIXEL * 2) {
     const q = outer[(i + 1) % 8], a = inner[i], b = inner[(i + 1) % 8];
     return { d: polylinePath([p, q, b, a]) + 'Z', fill: BEVEL[i] };
   });
+}
+
+const hash01 = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+
+// 0 = intact outline, 1 = fully consumed. Used by FX and tests.
+export function consumeAmount(level) {
+  const L = Number(level);
+  if (!Number.isFinite(L) || L <= 0) return 0;
+  return L >= 1 ? 1 : L;
+}
+
+// Subdivide the octagon and chew holes + crunchy outward jitter as level grows.
+export function distortRim(level, t = 0, seed = 1, r = R_SPHERE, flat = CHAMFER) {
+  const L = consumeAmount(level);
+  const src = snapPoly(diamondOctagon(r, flat));
+  const out = [];
+  const per = 5, tick = Math.floor((Number(t) || 0) * 8);
+  for (let i = 0; i < 8; i++) {
+    const a = src[i], b = src[(i + 1) % 8];
+    const nx = b.y - a.y, ny = a.x - b.x, len = Math.hypot(nx, ny) || 1;
+    const ux = nx / len, uy = ny / len;
+    for (let s = 0; s < per; s++) {
+      const u = s / per;
+      const px = a.x + (b.x - a.x) * u, py = a.y + (b.y - a.y) * u;
+      const h = hash01(i * 17 + s * 9 + seed * 3 + tick);
+      if (L > 0 && h < L) continue;
+      const jig = (hash01(i * 3 + s * 13 + seed + tick * 0.01) - 0.5) * 2 * L * PIXEL * 3;
+      out.push({ x: snap(px + ux * jig), y: snap(py + uy * jig) });
+    }
+  }
+  return out;
+}
+
+export function rimIntactRatio(level, t = 0, seed = 1) {
+  if (consumeAmount(level) <= 0) return 1;
+  const full = distortRim(0, t, seed).length, left = distortRim(level, t, seed).length;
+  return full ? left / full : 0;
+}
+
+export function distortPath(level, t = 0, seed = 1, r = R_SPHERE, flat = CHAMFER) {
+  const pts = distortRim(level, t, seed, r, flat);
+  return pts.length < 2 ? '' : polylinePath(pts);
+}
+
+// Pixel emboss: NW cream highlight, SE shadow, plus a cream outer stroke.
+export function embossPaths(r = R_SPHERE, flat = CHAMFER) {
+  const src = snapPoly(diamondOctagon(r, flat));
+  const hi = snapPoly(src.map((p) => ({ x: p.x - PIXEL, y: p.y - PIXEL })));
+  const sh = snapPoly(src.map((p) => ({ x: p.x + PIXEL, y: p.y + PIXEL })));
+  return { highlight: polylinePath(hi) + 'Z', shadow: polylinePath(sh) + 'Z', outer: diamondPath(r + PIXEL, flat), ink: diamondPath(r, flat) };
 }
