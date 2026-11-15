@@ -4,7 +4,7 @@ import { createGistStore } from './storage-gist.js';
 
 export async function detectMode(fetchFn = fetch) {
   try {
-    const r = await fetchFn('/healthz', { cache: 'no-store' });
+    const r = await fetchFn('healthz', { cache: 'no-store' });
     if (!r.ok) return 'gist';
     const j = await r.json();
     return j && j.ok === true ? 'server' : 'gist';
