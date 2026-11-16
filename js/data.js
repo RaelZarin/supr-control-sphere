@@ -1,8 +1,10 @@
 // Data: stances, default settings, and the momentum catalog (port of momentum_catalog.gd rules).
+import { AIR_MIGRATION, ensureAirStates, airStateOf, remainingAirTicks, filterAirIds } from './air.js';
+export { AIR_MIGRATION, JUMP_TICKS, remainingAirTicks, airStateOf } from './air.js';
 export const STANCES = {
   standing: { name: 'Whipping Reed', short: 'Standing', color: '#b9cde3', deep: '#3e6c9c', ink: '#232147', center: 'Idle', moving: 'Moving' },
   crouch: { name: 'Crouching Tiger', short: 'Crouched', color: '#6e6f7d', deep: '#2a2540', ink: '#ede1a9', center: 'Crouching', moving: 'Crouch moving' },
-  midair: { name: 'Leaping Dragon', short: 'In air', color: '#f4eecf', deep: '#e8b84a', ink: '#232147', center: 'Airborne', moving: 'Air moving' },
+  midair: { name: 'Leaping Dragon', short: 'In air', color: '#f4eecf', deep: '#e8b84a', ink: '#232147', center: 'Jumping', moving: 'Jumping' },
 };
 export const PALETTE = { panel: '#232147', stage: '#1a1830', text: '#ede1a9', primary: '#ede1a9', danger: '#ea5439', ap: '#e88a4a', heal: '#b4bda5', neutral: '#545a78' };
 export const HEIGHTS = ['high', 'mid', 'low'];
@@ -28,9 +30,11 @@ export function mergeSettings(s) {
 
 export const IDLE = 'idle';
 
-// Stance center: Tiger idles on the Crouch node; Reed and Dragon idle on Idle.
+// Stance center: Tiger idles on Crouch, Dragon on Jumping, Reed on Idle.
 export function stanceRoot(stance) {
-  return stance === 'crouch' ? 'crouch' : IDLE;
+  if (stance === 'crouch') return 'crouch';
+  if (stance === 'midair') return 'jumping';
+  return IDLE;
 }
 
 export function isMoving(move) { return !!(move && (move.moving || move.locomotion || move.state)); }
@@ -39,6 +43,7 @@ export function isStateMove(move) { return !!(move && move.state); }
 export function centerLabel(cat, id, stance) {
   const st = STANCES[stance] || STANCES.standing;
   const mv = cat.move(id);
+  if (stance === 'midair') return airStateOf(mv, id) === 'flipping' ? 'Flipping' : 'Jumping';
   if (!id || id === IDLE || id === stanceRoot(stance)) return st.center;
   if (isMoving(mv)) return mv.center || st.moving;
   return mv.label || id;
@@ -53,6 +58,7 @@ export function optionLabel(cat, id, stance) {
 export function raelPoseFor(cat, id, stance) {
   const mv = cat.move(id);
   const moving = isMoving(mv);
+  if (stance === 'midair') return airStateOf(mv, id) === 'flipping' ? 'flipping' : 'jumping';
   if (stance === 'crouch') return moving ? 'crouch_moving' : (id === IDLE || id === stanceRoot(stance) || id === 'crouch' ? 'crouch' : 'idle');
   if (moving && (mv.center === 'Running' || id === 'running')) return 'running';
   if (moving) return 'moving';
@@ -60,7 +66,7 @@ export function raelPoseFor(cat, id, stance) {
 }
 
 export function wheelNext(cat, stance, prev) {
-  return cat.legalNext(stance, prev).filter((id) => !isStateMove(cat.move(id)));
+  return cat.legalNext(stance, prev).filter((id) => cat.move(id).wheel !== false);
 }
 
 export function centerChoices(cat, stance) {
@@ -68,7 +74,10 @@ export function centerChoices(cat, stance) {
   const root = stanceRoot(stance);
   const base = { id: root, stance, label: st.center, kind: 'root' };
   const ids = cat.legalNext(stance, root === IDLE ? '' : root);
-  const states = ids.filter((id) => isStateMove(cat.move(id))).map((id) => {
+  const states = ids.filter((id) => {
+    const mv = cat.move(id);
+    return isStateMove(mv) && (mv.result_stance || stance) === stance;
+  }).map((id) => {
     const mv = cat.move(id);
     return { id, stance, label: mv.center || st.moving, kind: 'state' };
   });
@@ -157,7 +166,7 @@ function ensureSideSteps(tree) {
 
 
 const LOCO_FLAGS = {
-  running: { moving: true, state: true, center: 'Running' },
+  running: { moving: true, state: true, center: 'Running', wheel: false },
   sidestep: { moving: true },
   sidestep_left: { moving: true },
   sidestep_right: { moving: true },
@@ -183,7 +192,9 @@ export function applySphereUi(tree) {
   tree.edges = (tree.edges || []).filter((e) => !isIdleSidestep(e));
   ensureSideSteps(tree);
   ensureLocomotion(tree);
-  tree.migrations = [...new Set([...(tree.migrations || []), SPHERE_MIGRATION, CENTER_MIGRATION])];
+  const seen = new Set(tree.migrations || []);
+  ensureAirStates(tree, { rewire: !seen.has(AIR_MIGRATION) });
+  tree.migrations = [...new Set([...(tree.migrations || []), SPHERE_MIGRATION, CENTER_MIGRATION, AIR_MIGRATION])];
   return tree;
 }
 
@@ -198,8 +209,10 @@ export function mergeDefaultTree(saved, _defaults) {
     seen.add(SPHERE_MIGRATION);
   }
   if (!seen.has(CENTER_MIGRATION)) seen.add(CENTER_MIGRATION);
+  const rewireAir = !seen.has(AIR_MIGRATION);
+  if (rewireAir) seen.add(AIR_MIGRATION);
   tree.migrations = [...seen];
-  return ensureLocomotion(ensureSideSteps(tree));
+  return ensureAirStates(ensureLocomotion(ensureSideSteps(tree)), { rewire: rewireAir });
 }
 
 export function makeCatalog(tree) {
@@ -219,8 +232,12 @@ export function makeCatalog(tree) {
   const legalNext = (stance, prev) => {
     const from = prev || IDLE;
     let f = outgoing(from, stance);
-    if (!f.length && from !== IDLE && !move(from).custom) f = outgoing(IDLE, stance);
-    return f;
+    if (!f.length && from !== IDLE && !move(from).custom) {
+      const home = stance === 'midair' ? airStateOf(move(from), from) : IDLE;
+      f = outgoing(home, stance);
+    }
+    const self = { move };
+    return filterAirIds(f, self, stance, from);
   };
   const sourceOf = (stance, prev) => {
     if (prev && prev !== IDLE && (outgoing(prev, stance).length || move(prev).custom)) return prev;

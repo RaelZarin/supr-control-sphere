@@ -14,6 +14,7 @@
   <div><b>Control Sphere</b> <span class="muted">SUPR momentum UI mockup</span></div>
   <div class="topRight">
     <div id="sync" class="muted small">Loading…</div>
+    <button type="button" id="viewBtn" class="small" title="Show the compact in-game HUD frame">▣ In-game frame</button>
     <button type="button" id="settingsBtn" class="small">Settings</button>
   </div>
 </header>
@@ -23,7 +24,10 @@
       <div id="crumbs" class="crumbs"></div>
       <div class="hudRow"><div id="stance" class="badge"></div><div id="depth" class="badge"></div></div>
     </div>
+    <div class="playfield">
     <div class="stageWrap"><svg id="sphere" role="application" aria-label="Control Sphere. Tap or swipe toward an option; arrow keys select."></svg><div id="plusLayer" class="plusLayer"></div></div>
+    <div id="gameHud" class="gameHud" hidden></div>
+    </div>
     <div class="bar">
       <button id="undo" type="button" title="Undo (Backspace or Ctrl/Cmd+Z)">↶ Undo</button>
       <button id="reset" type="button" title="Reset to Idle (Esc)">◎ Idle</button>

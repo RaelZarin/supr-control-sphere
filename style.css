@@ -132,3 +132,57 @@ textarea.export { font: 12px/1.35 ui-monospace, Menlo, monospace; resize: vertic
 .centerBtn { padding: 5px 12px; border-radius: 10px; background: var(--panel); border: 2px solid var(--neutral); color: var(--text); font-weight: 600; font-size: 13px; cursor: pointer; }
 .centerBtn:hover { border-color: var(--text); }
 .centerBtn.on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 18%, var(--panel)); cursor: default; }
+
+.tickNum { font: 800 11px/1 ui-monospace, Menlo, monospace; text-anchor: middle; pointer-events: none; }
+.tickCap { font: 800 7px/1 ui-monospace, Menlo, monospace; letter-spacing: .06em; text-anchor: middle; pointer-events: none; }
+.rael.flipPop { animation: raelFlip 320ms cubic-bezier(.34,1.6,.64,1) both; transform-box: fill-box; transform-origin: center; }
+@keyframes raelFlip {
+  0% { transform: rotate(-180deg) scale(1); }
+  40% { transform: rotate(-30deg) scale(1.22); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .rael.flipPop { animation: none; } }
+
+#viewBtn.on { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+
+.playfield { position: relative; }
+.gameHud { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 8px auto 0; width: min(100%, 920px); padding: 6px 8px; background: color-mix(in srgb, var(--panel) 92%, #000); border: 2px solid var(--ink); box-shadow: 3px 3px 0 #0c0a1d; }
+.gameHud[hidden] { display: none !important; }
+.hudPlate { display: flex; flex-direction: column; gap: 3px; min-width: 148px; }
+.hudWho { display: flex; gap: 6px; align-items: baseline; font-size: 11px; letter-spacing: .06em; }
+.hudMeter { display: flex; align-items: center; gap: 6px; }
+.hudTag { font: 800 9px/1 ui-monospace, Menlo, monospace; letter-spacing: .08em; width: 22px; color: var(--text); }
+.hudPips { display: inline-flex; gap: 2px; flex-wrap: wrap; }
+.hudPips i { width: 7px; height: 8px; background: var(--pip, #15132b); border: 1px solid var(--ink); display: inline-block; image-rendering: pixelated; }
+.leyBar { display: flex; flex-direction: column; gap: 3px; min-width: 120px; flex: 0 1 160px; }
+.leyHead { display: flex; justify-content: space-between; align-items: baseline; font: 800 10px/1 ui-monospace, Menlo, monospace; letter-spacing: .08em; color: var(--text); }
+.leyVal { color: #5294cd; }
+.leyTrack { position: relative; height: 8px; background: #15132b; border: 2px solid var(--ink); }
+.leyFill, .leyGhost { position: absolute; top: 0; left: 0; height: 100%; }
+.leyGhost { background: color-mix(in srgb, #5294cd 35%, transparent); }
+.leyFill { background: #5294cd; }
+.beatTrack { flex: 1 1 280px; min-width: 200px; display: flex; flex-direction: column; gap: 2px; }
+.beatHead { display: grid; grid-template-columns: 36px repeat(8, 1fr); font: 800 8px/1 ui-monospace, Menlo, monospace; letter-spacing: .04em; color: var(--text); opacity: .85; }
+.beatLane { display: grid; grid-template-columns: 36px 1fr; gap: 4px; align-items: center; }
+.beatName { font: 800 8px/1 ui-monospace, Menlo, monospace; letter-spacing: .04em; color: var(--text); }
+.beatRow { position: relative; height: 12px; background: #15132b; border: 1px solid var(--ink); }
+.beatBlock { position: absolute; top: 1px; bottom: 1px; font: 800 7px/10px ui-monospace, Menlo, monospace; color: var(--ink); text-align: center; overflow: hidden; border: 1px solid var(--ink); }
+.beatBlock.move { background: #5294cd; }
+.beatBlock.action { background: #b4bda5; }
+.beatBlock.step { background: #e88a4a; }
+
+/* In-game frame: hide editor chrome so the play area stays clear; HUD sits in the bottom dock. */
+body.inGame { background: #12111f; }
+body.inGame .top { position: sticky; }
+body.inGame .panel, body.inGame .hud, body.inGame .legend, body.inGame .info, body.inGame #facing { display: none; }
+body.inGame .layout { display: block; max-width: none; padding: 8px 12px 12px; min-height: calc(100vh - 52px); }
+body.inGame .stageCol { min-height: calc(100vh - 70px); justify-content: flex-start; padding-bottom: 8px; }
+body.inGame .playfield { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; }
+body.inGame .stageWrap { width: min(100%, 58vh, calc(100vh - 300px)); margin: 4px auto; }
+body.inGame .gameHud { width: min(100%, 980px); margin: 0 auto; }
+body.inGame .bar, body.inGame .centerBar, body.inGame .stanceBar { margin-top: 4px; margin-bottom: 0; }
+body.inGame .stanceBar { margin-bottom: 6px; }
+@media (max-width: 720px) {
+  .gameHud { flex-direction: column; align-items: stretch; }
+  .beatTrack { min-width: 0; }
+}

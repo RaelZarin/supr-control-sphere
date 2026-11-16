@@ -20,13 +20,13 @@ export function renderBuilder(root, app) {
   const keep = (d, id) => { d.open = open.has(id); d.addEventListener('toggle', () => (d.open ? open.add(id) : open.delete(id))); return d; };
 
   // --- Add move form
-  const f = { label: '', stance: cur.stance, result: '', height: 'mid', parent: here, dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '', moving: false };
+  const f = { label: '', stance: cur.stance, result: '', height: 'mid', parent: here, dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '', ticks: '', moving: false };
   const inp = (k, type = 'text', attrs = {}) => h('input', { type, value: f[k], ...attrs, onInput: (e) => (f[k] = e.target.value) });
   const msg = h('div', { class: 'hint' });
   const add = () => {
     const label = f.label.trim(); if (!label) { msg.textContent = 'Give it a name.'; return; }
     let id = slug(label) || 'move'; while (tree.moves.some((x) => x.id === id)) id += '_2';
-    const mv = { id, label, height: f.height, tier: num(f.tier) ?? 0, windup: num(f.windup), action: num(f.action), recovery: num(f.recovery), damage: num(f.damage), spend: num(f.spend), stances: [f.stance], custom: true }; if (f.moving) mv.moving = true;
+    const mv = { id, label, height: f.height, tier: num(f.tier) ?? 0, windup: num(f.windup), action: num(f.action), recovery: num(f.recovery), damage: num(f.damage), spend: num(f.spend), ticks: num(f.ticks), stances: [f.stance], custom: true }; if (f.moving) mv.moving = true;
     if (f.result) mv.result_stance = f.result;
     Object.keys(mv).forEach((k) => mv[k] === undefined && delete mv[k]);
     const edge = parentToEdge(f.parent, id);
@@ -48,7 +48,8 @@ export function renderBuilder(root, app) {
     h('div', { class: 'grid4' },
       h('label', {}, 'Tier', inp('tier', 'number', { step: 1, min: 0 })), h('label', {}, 'Spend', inp('spend', 'number', { step: 1, min: 0 })),
       h('label', {}, 'Windup', inp('windup', 'number', { step: 0.25, min: 0 })), h('label', {}, 'Action', inp('action', 'number', { step: 0.25, min: 0 })),
-      h('label', {}, 'Recovery', inp('recovery', 'number', { step: 0.25, min: 0 })), h('label', {}, 'Damage', inp('damage', 'number', { step: 1, min: 0 }))),
+      h('label', {}, 'Recovery', inp('recovery', 'number', { step: 0.25, min: 0 })), h('label', {}, 'Damage', inp('damage', 'number', { step: 1, min: 0 })),
+      h('label', {}, 'Ticks', inp('ticks', 'number', { step: 1, min: 0 }))),
     h('div', { class: 'hint' }, 'Windup / action / recovery are in ticks, like momentum_moves.json. Spend is momentum.'),
     h('button', { type: 'button', class: 'primary', onClick: add }, 'Add to tree'), msg);
 
@@ -88,6 +89,7 @@ export function renderBuilder(root, app) {
         t.edges.push(ne);
       }, { resetPath: true })),
       select('Height', mv.height, HEIGHTS, (v) => app.updateTree((t) => { t.moves.find((x) => x.id === mv.id).height = v; })),
+      h('label', {}, 'Ticks', h('input', { type: 'number', step: 1, min: 0, value: mv.ticks ?? '', onChange: (e) => app.updateTree((t) => { const x = t.moves.find((m) => m.id === mv.id); const n = num(e.target.value); if (n == null) delete x.ticks; else x.ticks = n; }) })),
       h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!mv.moving, onChange: (e) => app.updateTree((t) => { const x = t.moves.find((m) => m.id === mv.id); if (e.target.checked) x.moving = true; else delete x.moving; }) }), ' Moving'));
   })) : null;
 

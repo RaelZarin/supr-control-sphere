@@ -128,6 +128,23 @@ export function createRenderer(svg, handlers) {
     applyRim(m);
   }
 
+
+function airTickPlate(left, max) {
+  const g = el('g', { class: 'airTicks', 'pointer-events': 'none' });
+  const w = 52, h = 16;
+  g.append(el('rect', { x: -w / 2, y: 0, width: w, height: h, fill: '#232147', stroke: '#ede1a9', 'stroke-width': 2, 'shape-rendering': 'crispEdges' }));
+  g.append(el('text', { class: 'tickNum', x: -10, y: 12, fill: '#ede1a9' }, String(left)));
+  g.append(el('text', { class: 'tickCap', x: 8, y: 11, fill: '#ede1a9' }, 'TICKS'));
+  const n = Math.max(0, max || 0), on = Math.max(0, left);
+  const pip = 4, gap = 1, total = n * pip + Math.max(0, n - 1) * gap;
+  let x = -total / 2;
+  for (let i = 0; i < n; i++) {
+    g.append(el('rect', { x, y: 17, width: pip, height: 4, fill: i < on ? '#ede1a9' : '#232147', stroke: '#15132b', 'stroke-width': 0.7, 'shape-rendering': 'crispEdges' }));
+    x += pip + gap;
+  }
+  return g;
+}
+
   function nodeEl(id, move, stance, opts = {}) {
     const st = STANCES[stance] || STANCES.standing; const r = opts.r || 28;
     const g = el('g', { class: 'node' + (move.stub ? ' stub' : '') + (opts.center ? ' center' : ''), 'data-id': opts.trail ? null : opts.center ? '__center' : id });
@@ -135,14 +152,22 @@ export function createRenderer(svg, handlers) {
     b.append(nodeDiamond(r + 10, 'transparent', 'none', 0));
     b.append(nodeDiamond(r, st.color, INK, 2.6, move.stub ? '5 4' : null));
     b.append(nodeDiamond(Math.max(6, r - 6), 'none', MOTIF.cream, 1.6));
-    if (opts.center) b.append(raelGlyph(r / 30, opts.pose || 'idle'));
-    else b.append(el('text', { class: 'abbr', y: 5, fill: st.ink }, abbrev(opts.label || move.label || id)));
+    if (opts.center) {
+      const glyph = raelGlyph(r / 30, opts.pose || 'idle');
+      if (opts.flipPop) glyph.classList.add('flipPop');
+      b.append(glyph);
+    } else b.append(el('text', { class: 'abbr', y: 5, fill: st.ink }, abbrev(opts.label || move.label || id)));
     const tier = Math.min(3, Math.round(move.tier || 0));
     for (let i = 0; i < tier; i++) b.append(el('rect', { x: (i - (tier - 1) / 2) * 8 - 2.5, y: -r + 2, width: 5, height: 5, fill: '#ea5439', stroke: INK, 'stroke-width': 1 }));
     if (move.spend) b.append(el('g', { transform: `translate(${r * 0.72},${-r * 0.72})` }, el('rect', { x: -8, y: -8, width: 16, height: 16, fill: '#e88a4a', stroke: INK, 'stroke-width': 1.6 }), el('text', { class: 'badge', y: 3.5 }, String(move.spend))));
     if (opts.dirChevron != null) { const c = polar(opts.dirChevron, r + 7); b.append(el('path', { d: 'M-5,-4 L3,0 L-5,4', transform: `translate(${c.x},${c.y}) rotate(${opts.dirChevron})`, fill: 'none', stroke: st.color, 'stroke-width': 2.4, 'stroke-linecap': 'square' })); }
     g.append(b);
-    if (opts.label) g.append(el('text', { class: 'label', y: r + 15 }, opts.label));
+    if (opts.airTicks != null) {
+      const ticks = airTickPlate(opts.airTicks, opts.airTicksMax ?? opts.airTicks);
+      ticks.setAttribute('transform', `translate(0,${r + 2})`);
+      g.append(ticks);
+    }
+    if (opts.label) g.append(el('text', { class: 'label', y: r + (opts.airTicks != null ? 32 : 15) }, opts.label));
     return { g, body: b, moving: !!opts.moving };
   }
 
@@ -162,7 +187,14 @@ export function createRenderer(svg, handlers) {
       trailL.append(g);
     }
     const cm = m.cat.move(m.cur.id);
-    curNode = nodeEl(m.cur.id, cm, m.cur.stance, { r: 34, center: true, pose: raelPoseFor(m.cat, m.cur.id, m.cur.stance), moving: isMoving(cm), label: s.labels ? centerLabel(m.cat, m.cur.id, m.cur.stance) : null });
+    const flipPop = !!(enter && m.airState === 'flipping' && show.prevAir !== 'flipping');
+    show.prevAir = m.airState;
+    const grant = m.airState ? (m.cat.move('jumping').ticks || 8) : 0;
+    curNode = nodeEl(m.cur.id, cm, m.cur.stance, {
+      r: 34, center: true, pose: raelPoseFor(m.cat, m.cur.id, m.cur.stance), moving: isMoving(cm),
+      label: s.labels ? centerLabel(m.cat, m.cur.id, m.cur.stance) : null,
+      airTicks: m.airTicks, airTicksMax: grant, flipPop,
+    });
     curNode.g.setAttribute('transform', `translate(${m.cam.x},${m.cam.y})`);
     for (const o of m.options) {
       const from = m.cam, to = { x: m.cam.x + o.x, y: m.cam.y + o.y };

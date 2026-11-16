@@ -32,7 +32,9 @@ export function renderCenterBar(el, model, onPick) {
   const choices = centerChoices(model.cat, stance);
   const curId = model.cur.id;
   el.replaceChildren(...choices.map((c) => {
-    const on = c.id === curId;
+    const on = stance === 'midair'
+      ? (c.kind === 'root' ? model.airState !== 'flipping' : model.airState === 'flipping' || curId === c.id)
+      : c.id === curId;
     const b = h('button', {
       type: 'button', class: `centerBtn${on ? ' on' : ''}`, 'data-center': c.id,
       title: on ? `${c.label}: current center` : `Enter ${c.label}`,

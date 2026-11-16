@@ -10,6 +10,7 @@ import { renderBuilder } from './builder.js';
 import { FACING_NAMES } from './layout.js';
 import { h } from './ui.js';
 import { renderStanceBar, renderCenterBar } from './stances.js';
+import { bootInGame } from './hud.js';
 import { bindSettingsButton } from './settings.js';
 import { createPlus } from './plus.js';
 
@@ -53,7 +54,12 @@ function renderHud() {
   $('#crumbs').replaceChildren(...crumbs);
   $('#facing').textContent = `Attack facing: ${FACING_NAMES[((app.settings.facing % 360) + 360) % 360] || app.settings.facing + '°'}${app.settings.mirror ? ' · mirrored' : ''}`;
   renderStanceBar($('#stanceBar'), m, (id) => act.select(id));
-  renderCenterBar($('#centerBar'), m, (c) => go(c.kind === 'root' && c.id === IDLE ? [] : [c.id]));
+  renderCenterBar($('#centerBar'), m, (c) => {
+    if (c.kind === 'root' && (c.id === IDLE || c.stance === 'standing')) return go([]);
+    if (c.stance === 'midair' && (c.kind === 'root' || c.id === 'jumping')) return go(['jumping']);
+    if (c.stance === 'midair') return go(['jumping', c.id]);
+    go([c.id]);
+  });
   renderInfo();
   plus?.sync();
 }
@@ -62,7 +68,7 @@ function renderInfo() {
   const id = o ? o.id : m.cur.id; const mv = app.cat.move(id);
   const performed = o ? m.cur.stance : (m.steps[m.steps.length - 2]?.stance || 'standing');
   const result = o ? o.resultStance : m.cur.stance;
-  const facts = [['Height', mv.height], ['Tier', mv.tier], ['Windup', mv.windup], ['Action', mv.action], ['Recovery', mv.recovery], ['Damage', mv.damage], ['Spend', mv.spend], ['Advance', mv.advance]].filter(([, v]) => v != null);
+  const facts = [['Height', mv.height], ['Tier', mv.tier], ['Windup', mv.windup], ['Action', mv.action], ['Recovery', mv.recovery], ['Damage', mv.damage], ['Spend', mv.spend], ['Advance', mv.advance], ['Ticks', mv.ticks], ...(o || m.cur.stance !== 'midair' ? [] : [['Air ticks', m.airTicks]])].filter(([, v]) => v != null);
   $('#info').replaceChildren(
     h('div', { class: 'infoHead' }, h('b', {}, o ? optionLabel(app.cat, id, o.resultStance || m.cur.stance) : centerLabel(app.cat, id, m.cur.stance)), o ? h('span', { class: 'muted' }, ' · option') : h('span', { class: 'muted' }, ' · current'), mv.stub ? h('span', { class: 'tag' }, 'stub') : null, mv.custom ? h('span', { class: 'tag' }, 'custom') : null),
     h('div', { class: 'muted small' }, m.empty && !o ? `No follow-ups yet — use + to add, or link back to ${STANCES[m.cur.stance].center}` : (id === IDLE ? `Options: ${m.options.length}` : `${STANCES[performed].name} → ${STANCES[result].name}`)),
@@ -152,6 +158,7 @@ $('#editBtn').onclick = () => { const on = plus?.setEdit(!plus.edit); $('#editBt
     };
     plus = createPlus(app, { layer: $('#plusLayer'), pop: $('#plusPop'), svg, onAdd: afterPlace, onLink: afterPlace });
     plus.sync();
+    bootInGame(app);
     statusEl.textContent = fresh ? 'Loaded repo defaults' : 'Loaded saved state';
     if (fresh && (await store.mode()) === 'server') persist();
     bindSettingsButton($('#settingsBtn'), store);

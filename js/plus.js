@@ -32,6 +32,7 @@ export function addCustomMove(tree, fields, linkKeyFn) {
   };
   if (fields.moving) mv.moving = true;
   if (fields.result) mv.result_stance = fields.result;
+  if (num(fields.ticks) != null) mv.ticks = num(fields.ticks);
   Object.keys(mv).forEach((k) => mv[k] === undefined && delete mv[k]);
   const edge = parentEdge(fields.parentId, stance, id);
   tree.moves.push(mv); tree.edges.push(edge);
@@ -93,7 +94,7 @@ export function createPlus(app, { layer, pop, svg, onAdd, onLink }) {
 
   function open(t, box) {
     openFor = t; pop.hidden = false;
-    const f = { label: '', stance: t.parentStance || 'standing', result: '', height: 'mid', dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '', linkBack: '', moving: false };
+    const f = { label: '', stance: t.parentStance || 'standing', result: '', height: 'mid', dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '', ticks: '', linkBack: '', moving: false };
     const msg = h('div', { class: 'hint' });
     const more = h('div', { class: 'plusMore', hidden: true });
     const existing = app.tree.moves.filter((x) => x.id !== IDLE && x.id !== t.parentId && !app.cat.outgoing(t.parentId === IDLE ? IDLE : t.parentId, t.parentStance).includes(x.id));
@@ -121,6 +122,7 @@ export function createPlus(app, { layer, pop, svg, onAdd, onLink }) {
       h('label', {}, 'Action', h('input', { type: 'number', step: 0.25, min: 0, value: f.action, onInput: (e) => (f.action = e.target.value) })),
       h('label', {}, 'Recovery', h('input', { type: 'number', step: 0.25, min: 0, value: f.recovery, onInput: (e) => (f.recovery = e.target.value) })),
       h('label', {}, 'Damage', h('input', { type: 'number', step: 1, min: 0, value: f.damage, onInput: (e) => (f.damage = e.target.value) })),
+      h('label', {}, 'Ticks', h('input', { type: 'number', step: 1, min: 0, value: f.ticks, onInput: (e) => (f.ticks = e.target.value) })),
       h('button', { type: 'button', class: 'plusSt', onClick: (e) => { f.moving = !f.moving; e.target.classList.toggle('on', f.moving); } }, 'Moving / locomotion'),
     );
     const setBack = (v) => { f.linkBack = f.linkBack === v ? '' : v; pop.querySelectorAll('[data-back]').forEach((x) => x.classList.toggle('on', x.dataset.back === f.linkBack)); };

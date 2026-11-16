@@ -1,4 +1,4 @@
-// Top-down Rael glyphs for the sphere center: idle, moving, running, and crouch. Crunchy, not sleek.
+// Top-down Rael glyphs for the sphere center: idle, moving, running, crouch, jumping, and flipping. Crunchy, not sleek.
 import { MOTIF } from './shape.js';
 
 const NS = 'http://www.w3.org/2000/svg';
@@ -45,12 +45,41 @@ function crouchBody(moving) {
   ];
 }
 
+
+function jumpingBody() {
+  return [
+    el('rect', { x: -10, y: 4, width: 6, height: 8, fill: '#2a4a72', stroke: INK, 'stroke-width': 1.5, transform: 'rotate(-28 -7 8)' }),
+    el('rect', { x: 5, y: 3, width: 6, height: 8, fill: '#3e6c9c', stroke: INK, 'stroke-width': 1.5, transform: 'rotate(22 8 7)' }),
+    el('ellipse', { cx: 0, cy: -2, rx: 14, ry: 7, fill: '#3e6c9c', stroke: INK, 'stroke-width': 2 }),
+    el('circle', { cx: 0, cy: -5, r: 7.5, fill: '#ede1a9', stroke: INK, 'stroke-width': 2 }),
+    el('path', { d: 'M-2,-12 L0,-18 L2,-12', fill: INK }),
+    blade(0),
+    el('rect', { x: -14, y: 12, width: 5, height: 2, fill: MOTIF.creamDeep, opacity: 0.7 }),
+    el('rect', { x: 8, y: 14, width: 4, height: 2, fill: MOTIF.creamDeep, opacity: 0.45 }),
+  ];
+}
+
+function flippingBody() {
+  return [
+    el('g', { transform: 'rotate(180)' },
+      el('rect', { x: -11, y: 2, width: 7, height: 9, fill: '#2a4a72', stroke: INK, 'stroke-width': 1.5, transform: 'rotate(30 -7 6)' }),
+      el('rect', { x: 4, y: 3, width: 7, height: 9, fill: '#3e6c9c', stroke: INK, 'stroke-width': 1.5, transform: 'rotate(-24 8 7)' }),
+      el('ellipse', { cx: 0, cy: -1, rx: 14, ry: 7, fill: '#3e6c9c', stroke: INK, 'stroke-width': 2 }),
+      el('circle', { cx: 0, cy: -4, r: 7.5, fill: '#ede1a9', stroke: INK, 'stroke-width': 2 }),
+      el('path', { d: 'M-2,-11 L0,-17 L2,-11', fill: INK }),
+      blade(1),
+    ),
+  ];
+}
+
 const BODIES = {
   idle: () => idleBody(),
   moving: () => movingBody(false),
   running: () => movingBody(true),
   crouch: () => crouchBody(false),
   crouch_moving: () => crouchBody(true),
+  jumping: () => jumpingBody(),
+  flipping: () => flippingBody(),
 };
 
 export function raelGlyph(scale = 1, pose = 'idle') {

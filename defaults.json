@@ -101,7 +101,9 @@
     "stances": [
      "standing",
      "midair"
-    ]
+    ],
+    "ticks": 2,
+    "require": "jumping"
    },
    {
     "id": "uppercut",
@@ -196,7 +198,8 @@
     "stub": true,
     "moving": true,
     "state": true,
-    "center": "Running"
+    "center": "Running",
+    "wheel": false
    },
    {
     "id": "charge",
@@ -249,7 +252,9 @@
     "result_stance": "midair",
     "stances": [
      "standing"
-    ]
+    ],
+    "ticks": 2,
+    "require": "jumping"
    },
    {
     "id": "forward_air",
@@ -265,7 +270,9 @@
     "result_stance": "midair",
     "stances": [
      "standing"
-    ]
+    ],
+    "ticks": 2,
+    "require": "jumping"
    },
    {
     "id": "back_air",
@@ -281,7 +288,9 @@
     "result_stance": "midair",
     "stances": [
      "standing"
-    ]
+    ],
+    "ticks": 2,
+    "require": "jumping"
    },
    {
     "id": "deflect",
@@ -321,7 +330,9 @@
     "anim": "down_air",
     "stances": [
      "midair"
-    ]
+    ],
+    "ticks": 2,
+    "require": "flipping"
    },
    {
     "id": "kick_off",
@@ -337,7 +348,9 @@
     "anim": "kick_off",
     "stances": [
      "midair"
-    ]
+    ],
+    "ticks": 2,
+    "require": "jumping"
    },
    {
     "id": "idle",
@@ -379,6 +392,37 @@
     ],
     "dir": "R",
     "moving": true
+   },
+   {
+    "id": "jumping",
+    "label": "Leap",
+    "height": "mid",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.25,
+    "stances": [
+     "standing",
+     "midair"
+    ],
+    "result_stance": "midair",
+    "state": true,
+    "center": "Jumping",
+    "ticks": 8
+   },
+   {
+    "id": "flipping",
+    "label": "Flip over",
+    "height": "mid",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.25,
+    "stances": [
+     "midair"
+    ],
+    "result_stance": "midair",
+    "state": true,
+    "center": "Flipping",
+    "ticks": 2
    }
   ],
   "edges": [
@@ -475,19 +519,11 @@
    },
    {
     "from": "forward_air",
-    "to": "down_air"
-   },
-   {
-    "from": "forward_air",
     "to": "overhand"
    },
    {
     "from": "forward_air",
     "to": "idle"
-   },
-   {
-    "from": "back_air",
-    "to": "down_air"
    },
    {
     "from": "back_air",
@@ -500,11 +536,6 @@
    {
     "from": "idle",
     "to": "overhand",
-    "stance": "midair"
-   },
-   {
-    "from": "idle",
-    "to": "down_air",
     "stance": "midair"
    },
    {
@@ -574,6 +605,67 @@
     "from": "idle",
     "to": "running",
     "stance": "standing"
+   },
+   {
+    "from": "idle",
+    "to": "jumping",
+    "stance": "standing"
+   },
+   {
+    "from": "jumping",
+    "to": "forward_air"
+   },
+   {
+    "from": "jumping",
+    "to": "neutral_air"
+   },
+   {
+    "from": "jumping",
+    "to": "back_air"
+   },
+   {
+    "from": "jumping",
+    "to": "overhand"
+   },
+   {
+    "from": "jumping",
+    "to": "kick_off"
+   },
+   {
+    "from": "jumping",
+    "to": "flipping"
+   },
+   {
+    "from": "jumping",
+    "to": "idle"
+   },
+   {
+    "from": "flipping",
+    "to": "down_air"
+   },
+   {
+    "from": "flipping",
+    "to": "idle"
+   },
+   {
+    "from": "neutral_air",
+    "to": "flipping"
+   },
+   {
+    "from": "forward_air",
+    "to": "flipping"
+   },
+   {
+    "from": "back_air",
+    "to": "flipping"
+   },
+   {
+    "from": "overhand",
+    "to": "flipping"
+   },
+   {
+    "from": "kick_off",
+    "to": "flipping"
    }
   ],
   "layouts": {
@@ -659,6 +751,10 @@
         "angle": 14
        }
       ]
+     },
+     {
+      "id": "jumping",
+      "angle": -150
      }
     ]
    },
@@ -699,19 +795,39 @@
     ]
    },
    "midair": {
-    "center": "idle",
+    "center": "jumping",
     "arms": [
+     {
+      "id": "forward_air",
+      "angle": -18
+     },
+     {
+      "id": "neutral_air",
+      "angle": 18
+     },
+     {
+      "id": "back_air",
+      "angle": 54
+     },
      {
       "id": "overhand",
       "angle": -90
      },
      {
-      "id": "down_air",
+      "id": "kick_off",
+      "angle": -54
+     },
+     {
+      "id": "flipping",
       "angle": 0
      },
      {
       "id": "idle",
       "angle": 90
+     },
+     {
+      "id": "down_air",
+      "angle": 0
      }
     ]
    },
@@ -761,6 +877,19 @@
       "angle": 90
      }
     ]
+   },
+   "after_flipping": {
+    "center": "flipping",
+    "arms": [
+     {
+      "id": "down_air",
+      "angle": -90
+     },
+     {
+      "id": "idle",
+      "angle": 90
+     }
+    ]
    }
   },
   "sectors": [
@@ -796,11 +925,22 @@
   "links": {},
   "placement": {
    "idle@standing>sidestep_left": 180,
-   "idle@standing>sidestep_right": 0
+   "idle@standing>sidestep_right": 0,
+   "idle@standing>jumping": -150,
+   "jumping>forward_air": -18,
+   "jumping>neutral_air": 18,
+   "jumping>back_air": 54,
+   "jumping>overhand": -90,
+   "jumping>kick_off": -54,
+   "jumping>flipping": 0,
+   "jumping>idle": 90,
+   "flipping>down_air": -90,
+   "flipping>idle": 90
   },
   "migrations": [
    "reed-sidesteps-v1",
-   "center-states-v1"
+   "center-states-v1",
+   "air-states-v1"
   ]
  }
 }
