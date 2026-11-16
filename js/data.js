@@ -1,6 +1,8 @@
 // Data: stances, default settings, and the momentum catalog (port of momentum_catalog.gd rules).
 import { AIR_MIGRATION, ensureAirStates, airStateOf, remainingAirTicks, filterAirIds } from './air.js';
+import { BLOCK_MIGRATION, ensureBlockAndSidestepFollows, aliasRoot, withInherited } from './follow.js';
 export { AIR_MIGRATION, JUMP_TICKS, remainingAirTicks, airStateOf } from './air.js';
+export { BLOCK_MIGRATION } from './follow.js';
 export const STANCES = {
   standing: { name: 'Whipping Reed', short: 'Standing', color: '#b9cde3', deep: '#3e6c9c', ink: '#232147', center: 'Idle', moving: 'Moving' },
   crouch: { name: 'Crouching Tiger', short: 'Crouched', color: '#6e6f7d', deep: '#2a2540', ink: '#ede1a9', center: 'Crouching', moving: 'Crouch moving' },
@@ -194,7 +196,8 @@ export function applySphereUi(tree) {
   ensureLocomotion(tree);
   const seen = new Set(tree.migrations || []);
   ensureAirStates(tree, { rewire: !seen.has(AIR_MIGRATION) });
-  tree.migrations = [...new Set([...(tree.migrations || []), SPHERE_MIGRATION, CENTER_MIGRATION, AIR_MIGRATION])];
+  ensureBlockAndSidestepFollows(tree, { rewire: !seen.has(BLOCK_MIGRATION) });
+  tree.migrations = [...new Set([...(tree.migrations || []), SPHERE_MIGRATION, CENTER_MIGRATION, AIR_MIGRATION, BLOCK_MIGRATION])];
   return tree;
 }
 
@@ -211,8 +214,10 @@ export function mergeDefaultTree(saved, _defaults) {
   if (!seen.has(CENTER_MIGRATION)) seen.add(CENTER_MIGRATION);
   const rewireAir = !seen.has(AIR_MIGRATION);
   if (rewireAir) seen.add(AIR_MIGRATION);
+  const rewireBlock = !seen.has(BLOCK_MIGRATION);
+  if (rewireBlock) seen.add(BLOCK_MIGRATION);
   tree.migrations = [...seen];
-  return ensureAirStates(ensureLocomotion(ensureSideSteps(tree)), { rewire: rewireAir });
+  return ensureBlockAndSidestepFollows(ensureAirStates(ensureLocomotion(ensureSideSteps(tree)), { rewire: rewireAir }), { rewire: rewireBlock });
 }
 
 export function makeCatalog(tree) {
@@ -232,6 +237,7 @@ export function makeCatalog(tree) {
   const legalNext = (stance, prev) => {
     const from = prev || IDLE;
     let f = outgoing(from, stance);
+    f = withInherited(outgoing, move, from, stance, f);
     if (!f.length && from !== IDLE && !move(from).custom) {
       const home = stance === 'midair' ? airStateOf(move(from), from) : IDLE;
       f = outgoing(home, stance);
@@ -240,6 +246,8 @@ export function makeCatalog(tree) {
     return filterAirIds(f, self, stance, from);
   };
   const sourceOf = (stance, prev) => {
+    const alias = prev ? aliasRoot(move, prev) : '';
+    if (alias && alias !== prev && !move(prev).custom) return alias;
     if (prev && prev !== IDLE && (outgoing(prev, stance).length || move(prev).custom)) return prev;
     return IDLE;
   };
