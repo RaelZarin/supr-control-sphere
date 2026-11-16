@@ -40,6 +40,9 @@ export function renderControls(root, app) {
     ), 'motion'),
     keep(section('Look', false,
       slider('Line thickness', s.line, { min: 0.5, max: 6, step: 0.25, fmt: (v) => v + ' px', onInput: (v) => set({ line: v }) }),
+      segmented(s.timelineOverflow === 'scroll' ? 'scroll' : 'expand', [['expand', 'Expand'], ['scroll', 'Scroll']], (v) => set({ timelineOverflow: v })),
+      h('div', { class: 'hint' }, 'Timeline overflow: expand grows the reserved dock for extra enemy lanes; scroll keeps a compact dock with a scrollbar.'),
+      slider('Preview enemy lanes', s.timelineEnemies ?? 3, { min: 0, max: 6, step: 1, fmt: (v) => String(Math.round(v)), onInput: (v) => set({ timelineEnemies: Math.round(v) }) }),
     ), 'look'),
     keep(presetsSection(app), 'presets'),
   );

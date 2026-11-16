@@ -77,6 +77,44 @@ export function placeByArms(ids, layout) {
 export function screenDeg(deg, s) { const d = s.mirror ? 180 - deg : deg; return d + s.facing; }
 export function polar(deg, r) { const a = rad(deg); return { x: Math.cos(a) * r, y: Math.sin(a) * r }; }
 
+// Option diamonds are r=28, so centers need at least this much room, and must clear the center node.
+export const NODE_MIN = 64;
+export const CENTER_CLEAR = 74;
+
+export function firstOverlap(opts, min = NODE_MIN) {
+  for (let i = 0; i < opts.length; i++) for (let j = 0; j < i; j++) {
+    if (Math.hypot(opts[i].x - opts[j].x, opts[i].y - opts[j].y) < min - 0.05) return [opts[i], opts[j]];
+  }
+  return null;
+}
+
+export function resolveOverlaps(opts, min = NODE_MIN, clear = CENTER_CLEAR) {
+  const out = opts.map((o) => ({ ...o }));
+  for (let step = 0; step < 32; step++) {
+    let moved = false;
+    for (const o of out) {
+      const d = Math.hypot(o.x, o.y) || 0.01;
+      if (d < clear) { const s = clear / d; o.x *= s; o.y *= s; moved = true; }
+    }
+    for (let i = 0; i < out.length; i++) for (let j = 0; j < i; j++) {
+      const dx = out[i].x - out[j].x, dy = out[i].y - out[j].y;
+      const d = Math.hypot(dx, dy) || 0.01;
+      if (d < min) {
+        const push = (min - d) / 2 + 0.6, ux = dx / d, uy = dy / d;
+        out[i].x += ux * push; out[i].y += uy * push;
+        out[j].x -= ux * push; out[j].y -= uy * push;
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+  for (const o of out) {
+    o.r = Math.hypot(o.x, o.y);
+    o.screen = Math.atan2(o.y, o.x) * 180 / Math.PI;
+  }
+  return out;
+}
+
 export function placeOptions(cat, ids, stance, prev, settings, fromId) {
   const tree = cat.tree;
   const pinned = new Map();
@@ -97,11 +135,7 @@ export function placeOptions(cat, ids, stance, prev, settings, fromId) {
     const deg = screenDeg(p.deg, settings);
     out.push({ id, ...p, screen: deg, ...polar(deg, p.r) });
   }
-  // Two options on the exact same spot (e.g. custom overrides) get nudged apart.
-  for (let i = 0; i < out.length; i++) for (let j = 0; j < i; j++) {
-    if (Math.hypot(out[i].x - out[j].x, out[i].y - out[j].y) < 40) { out[i].r = out[i].r === R_INNER ? R_OUTER : R_INNER; Object.assign(out[i], polar(out[i].screen, out[i].r)); }
-  }
-  return out;
+  return resolveOverlaps(out);
 }
 
 export const FACING_NAMES = { 0: 'Forward', 45: 'Forward-right', 90: 'Right', 135: 'Back-right', 180: 'Backward', 225: 'Back-left', 270: 'Left', 315: 'Forward-left' };

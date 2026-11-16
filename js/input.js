@@ -7,6 +7,7 @@ export function bindInput(svg, r, act) {
   svg.addEventListener('pointerdown', (e) => {
     const node = e.target.closest('[data-id]');
     down = { p: toView(e), t: performance.now(), id: node?.dataset.id || null, node, held: false };
+    if (node && node.dataset.id && node.dataset.id !== '__center' && node.dataset.id !== '__slot') act.hover(node.dataset.id);
     if (node) node.querySelector('.body')?.classList.add('press');
     svg.setPointerCapture(e.pointerId);
     if (node && act.longPress) {
@@ -26,8 +27,10 @@ export function bindInput(svg, r, act) {
     }
     if (dist > 26) { const o = r.optionAtAngle((Math.atan2(dy, dx) * 180) / Math.PI, 55); if (o) act.select(o.id); else act.miss(); }
   });
-  svg.addEventListener('pointerover', (e) => { const n = e.target.closest('[data-id]'); if (n && n.dataset.id !== '__center') act.hover(n.dataset.id); });
+  svg.addEventListener('pointerover', (e) => { const n = e.target.closest('[data-id]'); if (n && n.dataset.id && n.dataset.id !== '__center' && n.dataset.id !== '__slot') act.hover(n.dataset.id); });
   svg.addEventListener('pointerout', (e) => { const n = e.target.closest('[data-id]'); if (n && !n.contains(e.relatedTarget)) act.hover(null); });
+  svg.addEventListener('focusin', (e) => { const n = e.target.closest('[data-id]'); if (n && n.dataset.id && n.dataset.id !== '__center' && n.dataset.id !== '__slot') act.hover(n.dataset.id); });
+  svg.addEventListener('focusout', (e) => { const n = e.target.closest('[data-id]'); if (n && !n.contains(e.relatedTarget)) act.hover(null); });
 
   const DIR = { ArrowUp: -90, ArrowRight: 0, ArrowDown: 90, ArrowLeft: 180 };
   window.addEventListener('keydown', (e) => {

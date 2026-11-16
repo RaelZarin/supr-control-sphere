@@ -1,6 +1,7 @@
 // Builder: add moves to a stance/parent, edit per-link motion + direction, move/delete custom moves, export JSON.
 import { h, select, section } from './ui.js';
 import { STANCES, HEIGHTS, CURVES, DIRS, IDLE } from './data.js';
+import { ICON_IDS } from './icon.js';
 
 const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 32);
 const num = (v) => (v === '' || v == null || isNaN(Number(v)) ? undefined : Number(v));
@@ -20,13 +21,13 @@ export function renderBuilder(root, app) {
   const keep = (d, id) => { d.open = open.has(id); d.addEventListener('toggle', () => (d.open ? open.add(id) : open.delete(id))); return d; };
 
   // --- Add move form
-  const f = { label: '', stance: cur.stance, result: '', height: 'mid', parent: here, dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '', ticks: '', moving: false };
+  const f = { label: '', stance: cur.stance, result: '', height: 'mid', parent: here, dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '', ticks: '', icon: '', desc: '', moving: false };
   const inp = (k, type = 'text', attrs = {}) => h('input', { type, value: f[k], ...attrs, onInput: (e) => (f[k] = e.target.value) });
   const msg = h('div', { class: 'hint' });
   const add = () => {
     const label = f.label.trim(); if (!label) { msg.textContent = 'Give it a name.'; return; }
     let id = slug(label) || 'move'; while (tree.moves.some((x) => x.id === id)) id += '_2';
-    const mv = { id, label, height: f.height, tier: num(f.tier) ?? 0, windup: num(f.windup), action: num(f.action), recovery: num(f.recovery), damage: num(f.damage), spend: num(f.spend), ticks: num(f.ticks), stances: [f.stance], custom: true }; if (f.moving) mv.moving = true;
+    const mv = { id, label, height: f.height, tier: num(f.tier) ?? 0, windup: num(f.windup), action: num(f.action), recovery: num(f.recovery), damage: num(f.damage), spend: num(f.spend), ticks: num(f.ticks), stances: [f.stance], custom: true }; if (f.moving) mv.moving = true; if (f.icon && ICON_IDS.includes(f.icon)) mv.icon = f.icon; if (f.desc.trim()) mv.desc = f.desc.trim().slice(0, 90);
     if (f.result) mv.result_stance = f.result;
     Object.keys(mv).forEach((k) => mv[k] === undefined && delete mv[k]);
     const edge = parentToEdge(f.parent, id);
@@ -49,7 +50,9 @@ export function renderBuilder(root, app) {
       h('label', {}, 'Tier', inp('tier', 'number', { step: 1, min: 0 })), h('label', {}, 'Spend', inp('spend', 'number', { step: 1, min: 0 })),
       h('label', {}, 'Windup', inp('windup', 'number', { step: 0.25, min: 0 })), h('label', {}, 'Action', inp('action', 'number', { step: 0.25, min: 0 })),
       h('label', {}, 'Recovery', inp('recovery', 'number', { step: 0.25, min: 0 })), h('label', {}, 'Damage', inp('damage', 'number', { step: 1, min: 0 })),
-      h('label', {}, 'Ticks', inp('ticks', 'number', { step: 1, min: 0 }))),
+      h('label', {}, 'Ticks', inp('ticks', 'number', { step: 1, min: 0 })),
+      h('label', {}, 'Icon', h('select', { onChange: (e) => (f.icon = e.target.value) }, [h('option', { value: '' }, 'Letter fallback'), ...ICON_IDS.map((id) => { const o = h('option', { value: id }, id); return o; })])),
+      h('label', {}, 'Description', inp('desc', 'text', { maxlength: 90, placeholder: 'One-line hover blurb' }))),
     h('div', { class: 'hint' }, 'Windup / action / recovery are in ticks, like momentum_moves.json. Spend is momentum.'),
     h('button', { type: 'button', class: 'primary', onClick: add }, 'Add to tree'), msg);
 
@@ -90,6 +93,8 @@ export function renderBuilder(root, app) {
       }, { resetPath: true })),
       select('Height', mv.height, HEIGHTS, (v) => app.updateTree((t) => { t.moves.find((x) => x.id === mv.id).height = v; })),
       h('label', {}, 'Ticks', h('input', { type: 'number', step: 1, min: 0, value: mv.ticks ?? '', onChange: (e) => app.updateTree((t) => { const x = t.moves.find((m) => m.id === mv.id); const n = num(e.target.value); if (n == null) delete x.ticks; else x.ticks = n; }) })),
+      select('Icon', mv.icon || '', [['', 'Letter fallback'], ...ICON_IDS.map((id) => [id, id])], (v) => app.updateTree((t) => { const x = t.moves.find((m) => m.id === mv.id); if (v) x.icon = v; else delete x.icon; })),
+      h('label', {}, 'Description', h('input', { type: 'text', maxlength: 90, value: mv.desc || '', onChange: (e) => app.updateTree((t) => { const x = t.moves.find((m) => m.id === mv.id); const d = e.target.value.trim(); if (d) x.desc = d.slice(0, 90); else delete x.desc; }) })),
       h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!mv.moving, onChange: (e) => app.updateTree((t) => { const x = t.moves.find((m) => m.id === mv.id); if (e.target.checked) x.moving = true; else delete x.moving; }) }), ' Moving'));
   })) : null;
 

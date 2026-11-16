@@ -26,7 +26,10 @@
     </div>
     <div class="playfield">
     <div class="stageWrap"><svg id="sphere" role="application" aria-label="Control Sphere. Tap or swipe toward an option; arrow keys select."></svg><div id="plusLayer" class="plusLayer"></div></div>
-    <div id="gameHud" class="gameHud" hidden></div>
+    <div id="moveInfo" class="moveInfo" aria-live="polite"><span class="moveInfoHint">Hover a move</span></div>
+    <div class="hudReserve" id="hudReserve">
+      <div id="gameHud" class="gameHud" hidden></div>
+    </div>
     </div>
     <div class="bar">
       <button id="undo" type="button" title="Undo (Backspace or Ctrl/Cmd+Z)">↶ Undo</button>

@@ -178,11 +178,29 @@ body.inGame .panel, body.inGame .hud, body.inGame .legend, body.inGame .info, bo
 body.inGame .layout { display: block; max-width: none; padding: 8px 12px 12px; min-height: calc(100vh - 52px); }
 body.inGame .stageCol { min-height: calc(100vh - 70px); justify-content: flex-start; padding-bottom: 8px; }
 body.inGame .playfield { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; }
-body.inGame .stageWrap { width: min(100%, 58vh, calc(100vh - 300px)); margin: 4px auto; }
 body.inGame .gameHud { width: min(100%, 980px); margin: 0 auto; }
-body.inGame .bar, body.inGame .centerBar, body.inGame .stanceBar { margin-top: 4px; margin-bottom: 0; }
-body.inGame .stanceBar { margin-bottom: 6px; }
+body.inGame .bar, body.inGame .centerBar, body.inGame .stanceBar { margin-top: 2px; margin-bottom: 0; }
+body.inGame .stanceBar { margin-bottom: 2px; }
 @media (max-width: 720px) {
   .gameHud { flex-direction: column; align-items: stretch; }
   .beatTrack { min-width: 0; }
 }
+
+/* Reserved name/description strip under the diamond. Always takes this height so the layout never jumps. */
+.moveInfo { min-height: 48px; height: 48px; width: min(100%, 440px); margin: 4px auto 0; padding: 5px 12px; background: var(--panel); border: 2px solid var(--ink); box-shadow: 2px 2px 0 #0c0a1d; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-align: center; pointer-events: none; }
+.moveInfo .moveInfoName { font-weight: 800; font-size: 13.5px; letter-spacing: .04em; line-height: 1.2; }
+.moveInfo .moveInfoDesc { font-size: 12.5px; opacity: .88; line-height: 1.25; max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.moveInfo .moveInfoHint { font-size: 12.5px; opacity: .5; font-style: italic; }
+.node:focus, .node:focus-visible { outline: none; }
+.node:focus .body, .node:focus-visible .body { transform: scale(1.1); filter: brightness(1.12); }
+
+.hudReserve { display: none; }
+.hudReserve:has(#gameHud[hidden]) { display: none !important; }
+body.inGame .moveInfo { margin: 2px auto 4px; }
+body.inGame .hudReserve { display: flex; flex-direction: column; justify-content: flex-end; width: min(100%, 980px); margin: 0 auto 4px; min-height: var(--hudReserveH, 136px); }
+body.inGame .hudReserve.scroll { min-height: 0; }
+body.inGame .hudReserve.scroll .beatTrack { max-height: 54px; overflow-x: hidden; overflow-y: auto; scrollbar-width: auto; scrollbar-color: #ede1a9 #15132b; }
+body.inGame .hudReserve.scroll .beatTrack::-webkit-scrollbar { width: 10px; }
+body.inGame .hudReserve.scroll .beatTrack::-webkit-scrollbar-track { background: #15132b; border: 1px solid var(--ink); }
+body.inGame .hudReserve.scroll .beatTrack::-webkit-scrollbar-thumb { background: #ede1a9; border: 1px solid var(--ink); }
+body.inGame .stageWrap { width: min(100%, 42vh, calc(100vh - 460px)); margin: 0 auto; }

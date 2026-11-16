@@ -10,9 +10,10 @@ import { renderBuilder } from './builder.js';
 import { FACING_NAMES } from './layout.js';
 import { h } from './ui.js';
 import { renderStanceBar, renderCenterBar } from './stances.js';
-import { bootInGame } from './hud.js';
+import { bootInGame, refreshGameHud } from './hud.js';
 import { bindSettingsButton } from './settings.js';
 import { createPlus } from './plus.js';
+import { moveBlurb } from './icon.js';
 
 const $ = (s) => document.querySelector(s);
 const statusEl = $('#sync');
@@ -61,6 +62,8 @@ function renderHud() {
     go([c.id]);
   });
   renderInfo();
+  renderMoveInfo();
+  refreshGameHud(app);
   plus?.sync();
 }
 function renderInfo() {
@@ -75,6 +78,14 @@ function renderInfo() {
     h('div', { class: 'facts' }, facts.map(([k, v]) => h('span', {}, h('i', {}, k), ' ', String(v)))));
 }
 
+function renderMoveInfo() {
+  const el = $('#moveInfo'); if (!el) return;
+  const m = app.model;
+  const o = app.hover && app.hover !== '__center' && app.hover !== '__slot' ? m.options.find((x) => x.id === app.hover) : null;
+  if (!o) { el.replaceChildren(h('span', { class: 'moveInfoHint' }, 'Hover a move')); return; }
+  const { name, desc } = moveBlurb(o.move, optionLabel(app.cat, o.id, o.resultStance));
+  el.replaceChildren(h('b', { class: 'moveInfoName' }, name), desc ? h('span', { class: 'moveInfoDesc' }, desc) : null);
+}
 function go(path) { app.path = path; app.hover = null; refresh(true); renderBuilder($('#builder'), app); }
 function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 1800); }
 
@@ -94,7 +105,7 @@ const act = {
   reset() { go([]); },
   rotate(d) { app.rotate(d); },
   miss() { svg.classList.remove('miss'); void svg.getBBox(); svg.classList.add('miss'); },
-  hover(id) { app.hover = id; renderInfo(); plus?.hover(id); },
+  hover(id) { app.hover = id; renderInfo(); renderMoveInfo(); plus?.hover(id); },
   longPress(id) { return plus?.longPress(id === '__slot' ? '__center' : id); },
   openSlot() { plus?.openCurrent(); },
 };
@@ -162,5 +173,6 @@ $('#editBtn').onclick = () => { const on = plus?.setEdit(!plus.edit); $('#editBt
     statusEl.textContent = fresh ? 'Loaded repo defaults' : 'Loaded saved state';
     if (fresh && (await store.mode()) === 'server') persist();
     bindSettingsButton($('#settingsBtn'), store);
+    window.app = app;
   } catch (e) { statusEl.textContent = 'Could not load: ' + e.message; }
 })();

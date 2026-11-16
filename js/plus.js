@@ -1,6 +1,7 @@
 // In-context add: pixel '+' on a node opens a compact popover to create or link a child move.
 import { h } from './ui.js';
 import { STANCES, HEIGHTS, DIRS, IDLE, stanceRoot, optionLabel } from './data.js';
+import { ICON_IDS } from './icon.js';
 
 export const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 32);
 const num = (v) => (v === '' || v == null || isNaN(Number(v)) ? undefined : Number(v));
@@ -33,6 +34,8 @@ export function addCustomMove(tree, fields, linkKeyFn) {
   if (fields.moving) mv.moving = true;
   if (fields.result) mv.result_stance = fields.result;
   if (num(fields.ticks) != null) mv.ticks = num(fields.ticks);
+  if (fields.icon && ICON_IDS.includes(fields.icon)) mv.icon = fields.icon;
+  const desc = String(fields.desc || '').trim(); if (desc) mv.desc = desc.slice(0, 90);
   Object.keys(mv).forEach((k) => mv[k] === undefined && delete mv[k]);
   const edge = parentEdge(fields.parentId, stance, id);
   tree.moves.push(mv); tree.edges.push(edge);
@@ -94,7 +97,7 @@ export function createPlus(app, { layer, pop, svg, onAdd, onLink }) {
 
   function open(t, box) {
     openFor = t; pop.hidden = false;
-    const f = { label: '', stance: t.parentStance || 'standing', result: '', height: 'mid', dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '', ticks: '', linkBack: '', moving: false };
+    const f = { label: '', stance: t.parentStance || 'standing', result: '', height: 'mid', dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '', ticks: '', icon: '', desc: '', linkBack: '', moving: false };
     const msg = h('div', { class: 'hint' });
     const more = h('div', { class: 'plusMore', hidden: true });
     const existing = app.tree.moves.filter((x) => x.id !== IDLE && x.id !== t.parentId && !app.cat.outgoing(t.parentId === IDLE ? IDLE : t.parentId, t.parentStance).includes(x.id));
@@ -123,6 +126,8 @@ export function createPlus(app, { layer, pop, svg, onAdd, onLink }) {
       h('label', {}, 'Recovery', h('input', { type: 'number', step: 0.25, min: 0, value: f.recovery, onInput: (e) => (f.recovery = e.target.value) })),
       h('label', {}, 'Damage', h('input', { type: 'number', step: 1, min: 0, value: f.damage, onInput: (e) => (f.damage = e.target.value) })),
       h('label', {}, 'Ticks', h('input', { type: 'number', step: 1, min: 0, value: f.ticks, onInput: (e) => (f.ticks = e.target.value) })),
+      h('label', {}, 'Icon', h('select', { onChange: (e) => (f.icon = e.target.value) }, [h('option', { value: '' }, 'Letter fallback'), ...ICON_IDS.map((id) => h('option', { value: id }, id))])),
+      h('label', { class: 'plusDesc' }, 'Description', h('input', { type: 'text', maxlength: 90, placeholder: 'One-line hover blurb', onInput: (e) => (f.desc = e.target.value) })),
       h('button', { type: 'button', class: 'plusSt', onClick: (e) => { f.moving = !f.moving; e.target.classList.toggle('on', f.moving); } }, 'Moving / locomotion'),
     );
     const setBack = (v) => { f.linkBack = f.linkBack === v ? '' : v; pop.querySelectorAll('[data-back]').forEach((x) => x.classList.toggle('on', x.dataset.back === f.linkBack)); };

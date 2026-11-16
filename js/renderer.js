@@ -7,6 +7,7 @@ import { octilinearRoute, polylinePath, polylineAt, partialPolyline } from './ro
 import { createJuice, motionOff, juiceMs, PRESETS } from './juice.js';
 import { PIXEL, VIEW, CHAMFER, MOTIF, snap, diamondPath, diamondWedge, diamondAtAngle, facetFills, embossPaths, consumeAmount } from './shape.js';
 import { raelGlyph } from './rael.js';
+import { moveIcon } from './icon.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) if (v != null) e.setAttribute(k, v); for (const c of kids) if (c) e.append(c); return e; };
@@ -15,10 +16,6 @@ const INK = MOTIF.ink;
 export { VIEW };
 const LINE = { fill: 'none', 'stroke-linejoin': 'miter', 'stroke-linecap': 'square', 'stroke-miterlimit': 3 };
 
-function abbrev(label) {
-  const w = String(label).replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/);
-  return w.length > 1 ? (w[0][0] + w[1][0]).toUpperCase() : (w[0] || '?').slice(0, 2).replace(/^./, (c) => c.toUpperCase());
-}
 function mix(a, b, t) {
   const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
   const A = p(a), B = p(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
@@ -156,7 +153,7 @@ function airTickPlate(left, max) {
       const glyph = raelGlyph(r / 30, opts.pose || 'idle');
       if (opts.flipPop) glyph.classList.add('flipPop');
       b.append(glyph);
-    } else b.append(el('text', { class: 'abbr', y: 5, fill: st.ink }, abbrev(opts.label || move.label || id)));
+    } else b.append(moveIcon(move, r >= 24 ? 2.5 : 1.6, opts.label || move.label || id));
     const tier = Math.min(3, Math.round(move.tier || 0));
     for (let i = 0; i < tier; i++) b.append(el('rect', { x: (i - (tier - 1) / 2) * 8 - 2.5, y: -r + 2, width: 5, height: 5, fill: '#ea5439', stroke: INK, 'stroke-width': 1 }));
     if (move.spend) b.append(el('g', { transform: `translate(${r * 0.72},${-r * 0.72})` }, el('rect', { x: -8, y: -8, width: 16, height: 16, fill: '#e88a4a', stroke: INK, 'stroke-width': 1.6 }), el('text', { class: 'badge', y: 3.5 }, String(move.spend))));
@@ -192,7 +189,7 @@ function airTickPlate(left, max) {
     const grant = m.airState ? (m.cat.move('jumping').ticks || 8) : 0;
     curNode = nodeEl(m.cur.id, cm, m.cur.stance, {
       r: 34, center: true, pose: raelPoseFor(m.cat, m.cur.id, m.cur.stance), moving: isMoving(cm),
-      label: s.labels ? centerLabel(m.cat, m.cur.id, m.cur.stance) : null,
+      label: centerLabel(m.cat, m.cur.id, m.cur.stance),
       airTicks: m.airTicks, airTicksMax: grant, flipPop,
     });
     curNode.g.setAttribute('transform', `translate(${m.cam.x},${m.cam.y})`);
@@ -203,6 +200,10 @@ function airTickPlate(left, max) {
       const link = el('path', { ...LINE, stroke: stc, 'stroke-width': s.line, 'stroke-opacity': 0.75, 'stroke-dasharray': o.move.stub ? '4 5' : null });
       linkL.append(link);
       const node = nodeEl(o.id, o.move, o.resultStance, { dirChevron: s.style === 'direction' ? o.screen : null });
+      node.g.setAttribute('tabindex', '0');
+      node.g.setAttribute('focusable', 'true');
+      node.g.setAttribute('role', 'button');
+      node.g.setAttribute('aria-label', optionLabel(m.cat, o.id, o.resultStance));
       nodeL.append(node.g);
       let lab = null;
       if (s.labels) { lab = el('text', { class: 'label' }, optionLabel(m.cat, o.id, o.resultStance)); labelL.append(lab); }

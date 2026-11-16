@@ -1,6 +1,7 @@
 // Data: stances, default settings, and the momentum catalog (port of momentum_catalog.gd rules).
 import { AIR_MIGRATION, ensureAirStates, airStateOf, remainingAirTicks, filterAirIds } from './air.js';
 import { BLOCK_MIGRATION, ensureBlockAndSidestepFollows, aliasRoot, withInherited } from './follow.js';
+import { ensureMoveChrome } from './icon.js';
 export { AIR_MIGRATION, JUMP_TICKS, remainingAirTicks, airStateOf } from './air.js';
 export { BLOCK_MIGRATION } from './follow.js';
 export const STANCES = {
@@ -21,7 +22,8 @@ export const DEFAULT_SETTINGS = {
   style: 'tree', placement: 'sectors', ringLabels: 'height', facing: 0, mirror: false,
   fx: { standing: 1, crouch: 1, midair: 1 }, fxStart: 1, fxFull: 5, fxMax: 1,
   glow: 0.7, speed: 1, curve: 'overshoot', overshoot: 1.6, bend: 0.35, travelMs: 320,
-  line: 2, labels: true, stubs: true, breathe: 0.05, reducedMotion: false, rimDistortion: false,
+  line: 2, labels: false, stubs: true, breathe: 0.05, reducedMotion: false, rimDistortion: false,
+  timelineOverflow: 'expand', timelineEnemies: 3,
 };
 
 export function mergeSettings(s) {
@@ -197,6 +199,7 @@ export function applySphereUi(tree) {
   const seen = new Set(tree.migrations || []);
   ensureAirStates(tree, { rewire: !seen.has(AIR_MIGRATION) });
   ensureBlockAndSidestepFollows(tree, { rewire: !seen.has(BLOCK_MIGRATION) });
+  ensureMoveChrome(tree);
   tree.migrations = [...new Set([...(tree.migrations || []), SPHERE_MIGRATION, CENTER_MIGRATION, AIR_MIGRATION, BLOCK_MIGRATION])];
   return tree;
 }
@@ -217,7 +220,7 @@ export function mergeDefaultTree(saved, _defaults) {
   const rewireBlock = !seen.has(BLOCK_MIGRATION);
   if (rewireBlock) seen.add(BLOCK_MIGRATION);
   tree.migrations = [...seen];
-  return ensureBlockAndSidestepFollows(ensureAirStates(ensureLocomotion(ensureSideSteps(tree)), { rewire: rewireAir }), { rewire: rewireBlock });
+  return ensureMoveChrome(ensureBlockAndSidestepFollows(ensureAirStates(ensureLocomotion(ensureSideSteps(tree)), { rewire: rewireAir }), { rewire: rewireBlock }));
 }
 
 export function makeCatalog(tree) {
