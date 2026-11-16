@@ -69,6 +69,72 @@ export function branchDepth(cat, nodeId, stance) {
 }
 
 
+export const SPHERE_MIGRATION = 'reed-sidesteps-v1';
+
+const SIDE_STEPS = [
+  { id: 'sidestep_left', label: 'Sidestep left', dir: 'L', deg: 180, next: [{ id: 'lunge', angle: 166 }, { id: 'parry', angle: 194 }] },
+  { id: 'sidestep_right', label: 'Sidestep right', dir: 'R', deg: 0, next: [{ id: 'lunge', angle: -14 }, { id: 'parry', angle: 14 }] },
+];
+
+function isIdleRunning(e) { return e.from === 'idle' && e.to === 'running' && (!e.stance || e.stance === 'standing'); }
+function isIdleSidestep(e) { return e.from === 'idle' && e.to === 'sidestep' && (!e.stance || e.stance === 'standing'); }
+
+// Sidestep left/right on the Reed root; Running is catalog-only and is not an idle option on the sphere.
+function ensureSideSteps(tree) {
+  tree.moves ||= []; tree.edges ||= []; tree.placement ||= {}; tree.layouts ||= {};
+  const src = tree.moves.find((m) => m.id === 'sidestep') || { height: 'mid', tier: 0, windup: 0.25, recovery: 0.25, stances: ['standing'] };
+  for (const side of SIDE_STEPS) {
+    if (!tree.moves.some((m) => m.id === side.id)) {
+      tree.moves.push({
+        id: side.id, label: side.label, height: src.height || 'mid', tier: src.tier ?? 0,
+        windup: src.windup ?? 0.25, recovery: src.recovery ?? 0.25,
+        stances: src.stances ? [...src.stances] : ['standing'], dir: side.dir,
+      });
+    }
+    if (!tree.edges.some((e) => e.from === 'idle' && e.to === side.id && e.stance === 'standing')) {
+      tree.edges.push({ from: 'idle', to: side.id, stance: 'standing' });
+    }
+    for (const n of ['lunge', 'parry']) {
+      if (tree.moves.some((m) => m.id === n) && !tree.edges.some((e) => e.from === side.id && e.to === n)) {
+        tree.edges.push({ from: side.id, to: n });
+      }
+    }
+    const key = `idle@standing>${side.id}`;
+    if (tree.placement[key] == null) tree.placement[key] = side.deg;
+  }
+  const standing = tree.layouts.standing;
+  if (standing && Array.isArray(standing.arms)) {
+    standing.arms = standing.arms.filter((a) => a.id !== 'sidestep' && a.id !== 'running');
+    for (const side of SIDE_STEPS) {
+      if (!standing.arms.some((a) => a.id === side.id)) standing.arms.push({ id: side.id, angle: side.deg, next: side.next });
+    }
+  }
+  return tree;
+}
+
+export function applySphereUi(tree) {
+  tree.edges = (tree.edges || []).filter((e) => !isIdleRunning(e) && !isIdleSidestep(e));
+  ensureSideSteps(tree);
+  tree.migrations = [...new Set([...(tree.migrations || []), SPHERE_MIGRATION])];
+  return tree;
+}
+
+// Fold new default sphere options into a saved tree without dropping custom moves or later user edits.
+export function mergeDefaultTree(saved, _defaults) {
+  const tree = structuredClone(saved);
+  tree.moves ||= []; tree.edges ||= []; tree.placement ||= {}; tree.layouts ||= {};
+  const seen = new Set(tree.migrations || []);
+  if (!seen.has(SPHERE_MIGRATION)) {
+    const running = tree.moves.find((m) => m.id === 'running');
+    if (!running?.custom) tree.edges = tree.edges.filter((e) => !isIdleRunning(e));
+    const sidestep = tree.moves.find((m) => m.id === 'sidestep');
+    if (!sidestep?.custom) tree.edges = tree.edges.filter((e) => !isIdleSidestep(e));
+    seen.add(SPHERE_MIGRATION);
+    tree.migrations = [...seen];
+  }
+  return ensureSideSteps(tree);
+}
+
 export function makeCatalog(tree) {
   const moves = new Map(tree.moves.map((m) => [m.id, m]));
   const move = (id) => moves.get(id) || { id, label: id, height: 'mid', stances: [] };

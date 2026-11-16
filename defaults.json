@@ -347,17 +347,36 @@
      "crouch",
      "midair"
     ]
+   },
+   {
+    "id": "sidestep_left",
+    "label": "Sidestep left",
+    "height": "mid",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.25,
+    "stances": [
+     "standing"
+    ],
+    "dir": "L"
+   },
+   {
+    "id": "sidestep_right",
+    "label": "Sidestep right",
+    "height": "mid",
+    "tier": 0,
+    "windup": 0.25,
+    "recovery": 0.25,
+    "stances": [
+     "standing"
+    ],
+    "dir": "R"
    }
   ],
   "edges": [
    {
     "from": "idle",
     "to": "light_attack",
-    "stance": "standing"
-   },
-   {
-    "from": "idle",
-    "to": "running",
     "stance": "standing"
    },
    {
@@ -373,11 +392,6 @@
    {
     "from": "idle",
     "to": "back_air",
-    "stance": "standing"
-   },
-   {
-    "from": "idle",
-    "to": "sidestep",
     "stance": "standing"
    },
    {
@@ -521,6 +535,32 @@
    {
     "from": "block",
     "to": "idle"
+   },
+   {
+    "from": "idle",
+    "to": "sidestep_left",
+    "stance": "standing"
+   },
+   {
+    "from": "sidestep_left",
+    "to": "lunge"
+   },
+   {
+    "from": "sidestep_left",
+    "to": "parry"
+   },
+   {
+    "from": "idle",
+    "to": "sidestep_right",
+    "stance": "standing"
+   },
+   {
+    "from": "sidestep_right",
+    "to": "lunge"
+   },
+   {
+    "from": "sidestep_right",
+    "to": "parry"
    }
   ],
   "layouts": {
@@ -538,16 +578,6 @@
       ]
      },
      {
-      "id": "running",
-      "angle": -54,
-      "next": [
-       {
-        "id": "charge",
-        "angle": -54
-       }
-      ]
-     },
-     {
       "id": "forward_air",
       "angle": -18
      },
@@ -558,20 +588,6 @@
      {
       "id": "back_air",
       "angle": 54
-     },
-     {
-      "id": "sidestep",
-      "angle": 90,
-      "next": [
-       {
-        "id": "lunge",
-        "angle": 76
-       },
-       {
-        "id": "parry",
-        "angle": 104
-       }
-      ]
      },
      {
       "id": "deflect",
@@ -602,6 +618,34 @@
      {
       "id": "kick",
       "angle": 234
+     },
+     {
+      "id": "sidestep_left",
+      "angle": 180,
+      "next": [
+       {
+        "id": "lunge",
+        "angle": 166
+       },
+       {
+        "id": "parry",
+        "angle": 194
+       }
+      ]
+     },
+     {
+      "id": "sidestep_right",
+      "angle": 0,
+      "next": [
+       {
+        "id": "lunge",
+        "angle": -14
+       },
+       {
+        "id": "parry",
+        "angle": 14
+       }
+      ]
      }
     ]
    },
@@ -737,6 +781,12 @@
    "kill": 0.5
   },
   "links": {},
-  "placement": {}
+  "placement": {
+   "idle@standing>sidestep_left": 180,
+   "idle@standing>sidestep_right": 0
+  },
+  "migrations": [
+   "reed-sidesteps-v1"
+  ]
  }
 }

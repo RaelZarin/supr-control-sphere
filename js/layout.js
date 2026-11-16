@@ -1,3 +1,4 @@
+import { DIRS } from './data.js';
 // Layout math: height-sector placement (port of MomentumCatalog.place_star_nodes), graph-arm angles, facing + mirror.
 export const R_INNER = 110, R_OUTER = 168, MIN_GAP = 64, R_SPHERE = 214;
 const rad = (d) => (d * Math.PI) / 180;
@@ -78,15 +79,21 @@ export function polar(deg, r) { const a = rad(deg); return { x: Math.cos(a) * r,
 
 export function placeOptions(cat, ids, stance, prev, settings, fromId) {
   const tree = cat.tree;
+  const pinned = new Map();
+  for (const id of ids) {
+    const dir = DIRS.find((d) => d.id === cat.move(id).dir && d.deg != null);
+    const over = tree.placement?.[cat.linkKey(fromId, id, stance)];
+    if (dir || typeof over === 'number') {
+      pinned.set(id, { deg: typeof over === 'number' ? over : dir.deg, r: R_INNER, sector: typeof over === 'number' ? 'custom' : 'dir' });
+    }
+  }
   let base = settings.placement === 'arms' ? placeByArms(ids, cat.layoutFor(stance, prev)) : new Map();
-  const rest = ids.filter((id) => !base.has(id));
+  const rest = ids.filter((id) => !base.has(id) && !pinned.has(id));
   const sec = placeBySectors(rest, (id) => cat.move(id).height || 'mid', tree.sectors);
   for (const [k, v] of sec) base.set(k, v);
   const out = [];
   for (const id of ids) {
-    const p = base.get(id) || { deg: -90, r: R_INNER, sector: '?' };
-    const over = tree.placement?.[cat.linkKey(fromId, id, stance)];
-    if (typeof over === 'number') { p.deg = over; p.sector = 'custom'; }
+    const p = { ...(pinned.get(id) || base.get(id) || { deg: -90, r: R_INNER, sector: '?' }) };
     const deg = screenDeg(p.deg, settings);
     out.push({ id, ...p, screen: deg, ...polar(deg, p.r) });
   }

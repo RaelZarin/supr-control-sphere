@@ -1,5 +1,5 @@
 // App glue: state (tree, settings, path), wiring between storage, renderer, input, controls and builder.
-import { makeCatalog, mergeSettings, DEFAULT_SETTINGS, STANCES, IDLE, walk } from './data.js';
+import { makeCatalog, mergeSettings, DEFAULT_SETTINGS, STANCES, IDLE, walk, mergeDefaultTree } from './data.js';
 import { buildModel, fxFromDepth } from './model.js';
 import { createRenderer } from './renderer.js';
 import { startLoop, tween } from './anim.js';
@@ -132,6 +132,11 @@ $('#editBtn').onclick = () => { const on = plus?.setEdit(!plus.edit); $('#editBt
     app.sourceNote = `Repo defaults: ${d.source.ref} @ ${d.source.commit}.`;
     const { state, fresh } = await store.load();
     app.tree = sanitizeTree(state.tree); app.settings = mergeSettings(state.settings);
+    if (!fresh) {
+      const merged = mergeDefaultTree(app.tree, d.tree);
+      const changed = JSON.stringify(merged) !== JSON.stringify(app.tree);
+      app.tree = merged; if (changed) persist();
+    }
     app.cat = makeCatalog(app.tree);
     refresh(true); renderControls($('#controls'), app); renderBuilder($('#builder'), app);
     bindInput(svg, renderer, act); startLoop();
