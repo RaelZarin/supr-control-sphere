@@ -1,6 +1,6 @@
 // In-context add: pixel '+' on a node opens a compact popover to create or link a child move.
 import { h } from './ui.js';
-import { STANCES, HEIGHTS, DIRS, IDLE } from './data.js';
+import { STANCES, HEIGHTS, DIRS, IDLE, stanceRoot } from './data.js';
 
 export const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 32);
 const num = (v) => (v === '' || v == null || isNaN(Number(v)) ? undefined : Number(v));
@@ -17,7 +17,7 @@ export function parentEdge(parentId, parentStance, to) {
 }
 
 // Stance home: Crouching Tiger idles on the Crouch node; Reed and Dragon return to Idle.
-export function stanceIdleId(stance) { return stance === 'crouch' ? 'crouch' : IDLE; }
+export const stanceIdleId = stanceRoot;
 
 
 export function addCustomMove(tree, fields, linkKeyFn) {

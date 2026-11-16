@@ -28,6 +28,47 @@ export function mergeSettings(s) {
 
 export const IDLE = 'idle';
 
+// Stance center: Tiger idles on the Crouch node; Reed and Dragon idle on Idle.
+export function stanceRoot(stance) {
+  return stance === 'crouch' ? 'crouch' : IDLE;
+}
+
+function treeKids(cat, id, stance) {
+  const kids = [];
+  const add = (x) => { if (x && !kids.includes(x)) kids.push(x); };
+  for (const e of cat.tree.edges) if (e.from === id) add(e.to);
+  if (stance) for (const n of cat.legalNext(stance, id)) add(n);
+  return kids;
+}
+
+function shortest(cat, start, target, stance) {
+  if (start === target) return 0;
+  const seen = new Set([start]);
+  const q = [[start, 0]];
+  while (q.length) {
+    const [id, d] = q.shift();
+    for (const n of treeKids(cat, id, stance)) {
+      if (n === target) return d + 1;
+      if (!seen.has(n)) { seen.add(n); q.push([n, d + 1]); }
+    }
+  }
+  return null;
+}
+
+// Branch steps from the current stance's idle root to this node (shortest tree path), not combo length.
+export function branchDepth(cat, nodeId, stance) {
+  const root = stanceRoot(stance);
+  if (!nodeId || nodeId === root || nodeId === IDLE) return 0;
+  const d = shortest(cat, root, nodeId, stance);
+  if (d != null) return d;
+  if (root !== IDLE) {
+    const d2 = shortest(cat, IDLE, nodeId, null);
+    if (d2 != null) return d2;
+  }
+  return 0;
+}
+
+
 export function makeCatalog(tree) {
   const moves = new Map(tree.moves.map((m) => [m.id, m]));
   const move = (id) => moves.get(id) || { id, label: id, height: 'mid', stances: [] };

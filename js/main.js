@@ -1,6 +1,6 @@
 // App glue: state (tree, settings, path), wiring between storage, renderer, input, controls and builder.
 import { makeCatalog, mergeSettings, DEFAULT_SETTINGS, STANCES, IDLE, walk } from './data.js';
-import { buildModel } from './model.js';
+import { buildModel, fxFromDepth } from './model.js';
 import { createRenderer } from './renderer.js';
 import { startLoop, tween } from './anim.js';
 import { bindInput } from './input.js';
@@ -37,7 +37,7 @@ function persist() { store.save(app.snapshot()); }
 function refresh(enter = false) {
   app.cat = makeCatalog(app.tree);
   const m = buildModel(app.cat, app.settings, app.path);
-  if (app.boost) { m.depth += app.boost; const s = m.settings; const span = Math.max(1, s.fxFull - s.fxStart + 1); m.level = Math.min(1, Math.max(0, (m.depth - s.fxStart + 1) / span)) * s.fxMax * (s.fx[m.cur.stance] ?? 1); m.depthLevel = Math.min(1, m.depth / Math.max(1, s.fxFull)); }
+  if (app.boost) { m.depth += app.boost; Object.assign(m, fxFromDepth(m.depth, m.settings, m.cur.stance)); }
   app.model = m; renderer.show(m, { enter }); renderHud();
 }
 

@@ -1,5 +1,5 @@
 // Model: turns (tree, settings, path) into what the renderer draws — world positions, current options, depth and FX level.
-import { walk, IDLE, mergeSettings } from './data.js';
+import { walk, IDLE, mergeSettings, branchDepth } from './data.js';
 import { placeOptions, polar, R_INNER } from './layout.js';
 
 export function linkStyle(cat, settings, from, to, stance) {
@@ -13,6 +13,14 @@ function optionsAt(cat, settings, step) {
   return placeOptions(cat, ids, step.stance, step.prev, settings, cat.sourceOf(step.stance, step.prev));
 }
 
+export function fxFromDepth(depth, settings, stance) {
+  const span = Math.max(1, settings.fxFull - settings.fxStart + 1);
+  const ramp = Math.min(1, Math.max(0, (depth - settings.fxStart + 1) / span));
+  const level = ramp * settings.fxMax * (settings.fx[stance] ?? 1);
+  const depthLevel = Math.min(1, depth / Math.max(1, settings.fxFull));
+  return { level, depthLevel };
+}
+
 export function buildModel(cat, settingsIn, path) {
   const settings = mergeSettings(settingsIn);
   const steps = walk(cat, path);
@@ -23,17 +31,13 @@ export function buildModel(cat, settingsIn, path) {
     pos.push({ x: pos[k - 1].x + o.x, y: pos[k - 1].y + o.y });
   }
   const cur = steps[steps.length - 1];
-  let lastIdle = 0; steps.forEach((s, i) => { if (s.id === IDLE) lastIdle = i; });
-  const depth = steps.length - 1 - lastIdle;
+  const depth = branchDepth(cat, cur.id, cur.stance);
   const options = optionsAt(cat, settings, cur).map((o) => {
     const rs = cat.resultStance(o.id, cur.stance);
     const nextStep = { id: o.id, stance: rs, prev: o.id === IDLE ? '' : o.id };
     const twigs = o.id === IDLE ? [] : cat.legalNext(rs, nextStep.prev).slice(0, 6).map((id) => ({ id, stance: cat.resultStance(id, rs) }));
     return { ...o, move: cat.move(o.id), resultStance: rs, link: linkStyle(cat, settings, cat.sourceOf(cur.stance, cur.prev), o.id, cur.stance), twigs };
   });
-  const span = Math.max(1, settings.fxFull - settings.fxStart + 1);
-  const ramp = Math.min(1, Math.max(0, (depth - settings.fxStart + 1) / span));
-  const level = ramp * settings.fxMax * (settings.fx[cur.stance] ?? 1);
-  const depthLevel = Math.min(1, depth / Math.max(1, settings.fxFull));
+  const { level, depthLevel } = fxFromDepth(depth, settings, cur.stance);
   return { cat, settings, steps, pos, cur, cam: pos[pos.length - 1], options, depth, level, depthLevel, empty: options.length === 0 };
 }
