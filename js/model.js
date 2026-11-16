@@ -1,5 +1,5 @@
 // Model: turns (tree, settings, path) into what the renderer draws — world positions, current options, depth and FX level.
-import { walk, IDLE, mergeSettings, branchDepth } from './data.js';
+import { walk, IDLE, mergeSettings, branchDepth, wheelNext } from './data.js';
 import { placeOptions, polar, R_INNER } from './layout.js';
 
 export function linkStyle(cat, settings, from, to, stance) {
@@ -8,7 +8,7 @@ export function linkStyle(cat, settings, from, to, stance) {
 }
 
 function optionsAt(cat, settings, step) {
-  let ids = cat.legalNext(step.stance, step.prev);
+  let ids = wheelNext(cat, step.stance, step.prev);
   if (!settings.stubs) ids = ids.filter((id) => !cat.move(id).stub);
   return placeOptions(cat, ids, step.stance, step.prev, settings, cat.sourceOf(step.stance, step.prev));
 }

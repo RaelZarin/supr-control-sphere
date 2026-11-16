@@ -1,6 +1,6 @@
 // In-context add: pixel '+' on a node opens a compact popover to create or link a child move.
 import { h } from './ui.js';
-import { STANCES, HEIGHTS, DIRS, IDLE, stanceRoot } from './data.js';
+import { STANCES, HEIGHTS, DIRS, IDLE, stanceRoot, optionLabel } from './data.js';
 
 export const slug = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 32);
 const num = (v) => (v === '' || v == null || isNaN(Number(v)) ? undefined : Number(v));
@@ -30,6 +30,7 @@ export function addCustomMove(tree, fields, linkKeyFn) {
     windup: num(fields.windup), action: num(fields.action), recovery: num(fields.recovery),
     damage: num(fields.damage), spend: num(fields.spend), stances: [stance], custom: true,
   };
+  if (fields.moving) mv.moving = true;
   if (fields.result) mv.result_stance = fields.result;
   Object.keys(mv).forEach((k) => mv[k] === undefined && delete mv[k]);
   const edge = parentEdge(fields.parentId, stance, id);
@@ -64,9 +65,9 @@ export function createPlus(app, { layer, pop, svg, onAdd, onLink }) {
   function targets() {
     if (!app.model) return [];
     const cur = app.model.cur;
-    const list = [{ id: '__center', parentId: cur.id, parentStance: cur.stance, title: cur.id === IDLE ? 'Idle' : app.cat.move(cur.id).label }];
+    const list = [{ id: '__center', parentId: cur.id, parentStance: cur.stance, title: optionLabel(app.cat, cur.id, cur.stance) }];
     for (const o of app.model.options) {
-      list.push({ id: o.id, parentId: o.id, parentStance: o.resultStance, title: o.id === IDLE ? 'Idle' : o.move.label });
+      list.push({ id: o.id, parentId: o.id, parentStance: o.resultStance, title: optionLabel(app.cat, o.id, o.resultStance) });
     }
     return list;
   }
@@ -92,7 +93,7 @@ export function createPlus(app, { layer, pop, svg, onAdd, onLink }) {
 
   function open(t, box) {
     openFor = t; pop.hidden = false;
-    const f = { label: '', stance: t.parentStance || 'standing', result: '', height: 'mid', dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '', linkBack: '' };
+    const f = { label: '', stance: t.parentStance || 'standing', result: '', height: 'mid', dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '', linkBack: '', moving: false };
     const msg = h('div', { class: 'hint' });
     const more = h('div', { class: 'plusMore', hidden: true });
     const existing = app.tree.moves.filter((x) => x.id !== IDLE && x.id !== t.parentId && !app.cat.outgoing(t.parentId === IDLE ? IDLE : t.parentId, t.parentStance).includes(x.id));
@@ -120,17 +121,18 @@ export function createPlus(app, { layer, pop, svg, onAdd, onLink }) {
       h('label', {}, 'Action', h('input', { type: 'number', step: 0.25, min: 0, value: f.action, onInput: (e) => (f.action = e.target.value) })),
       h('label', {}, 'Recovery', h('input', { type: 'number', step: 0.25, min: 0, value: f.recovery, onInput: (e) => (f.recovery = e.target.value) })),
       h('label', {}, 'Damage', h('input', { type: 'number', step: 1, min: 0, value: f.damage, onInput: (e) => (f.damage = e.target.value) })),
+      h('button', { type: 'button', class: 'plusSt', onClick: (e) => { f.moving = !f.moving; e.target.classList.toggle('on', f.moving); } }, 'Moving / locomotion'),
     );
     const setBack = (v) => { f.linkBack = f.linkBack === v ? '' : v; pop.querySelectorAll('[data-back]').forEach((x) => x.classList.toggle('on', x.dataset.back === f.linkBack)); };
     const backBox = () => h('div', { class: 'plusBack' },
       h('span', { class: 'muted small' }, 'Then'),
-      h('button', { type: 'button', class: 'plusSt', 'data-back': 'idle', onClick: () => setBack('idle') }, 'Link back to Idle'),
-      h('button', { type: 'button', class: 'plusSt', 'data-back': 'stance', onClick: () => setBack('stance') }, 'Link back to this stance\'s idle'),
+      h('button', { type: 'button', class: 'plusSt', 'data-back': 'idle', onClick: () => setBack('idle') }, `Link back to ${STANCES.standing.center}`),
+      h('button', { type: 'button', class: 'plusSt', 'data-back': 'stance', onClick: () => setBack('stance') }, `Link back to ${STANCES[t.parentStance]?.center || STANCES.standing.center}`),
     );
     const laterBack = () => h('div', { class: 'plusBack later' },
       h('span', { class: 'muted small' }, 'Or link this move back'),
-      h('button', { type: 'button', onClick: () => doBack('idle') }, 'Idle'),
-      h('button', { type: 'button', onClick: () => doBack('stance') }, 'This stance\'s idle'),
+      h('button', { type: 'button', onClick: () => doBack('idle') }, STANCES.standing.center),
+      h('button', { type: 'button', onClick: () => doBack('stance') }, STANCES[t.parentStance]?.center || STANCES.standing.center),
     );
     const doBack = (kind) => {
       const res = {};

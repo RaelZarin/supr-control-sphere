@@ -128,7 +128,8 @@
     "stances": [
      "crouch",
      "standing"
-    ]
+    ],
+    "moving": true
    },
    {
     "id": "hop",
@@ -140,7 +141,8 @@
     "stances": [
      "crouch"
     ],
-    "stub": true
+    "stub": true,
+    "moving": true
    },
    {
     "id": "sidestep",
@@ -151,7 +153,8 @@
     "recovery": 0.25,
     "stances": [
      "standing"
-    ]
+    ],
+    "moving": true
    },
    {
     "id": "kick",
@@ -190,7 +193,10 @@
     "stances": [
      "standing"
     ],
-    "stub": true
+    "stub": true,
+    "moving": true,
+    "state": true,
+    "center": "Running"
    },
    {
     "id": "charge",
@@ -358,7 +364,8 @@
     "stances": [
      "standing"
     ],
-    "dir": "L"
+    "dir": "L",
+    "moving": true
    },
    {
     "id": "sidestep_right",
@@ -370,7 +377,8 @@
     "stances": [
      "standing"
     ],
-    "dir": "R"
+    "dir": "R",
+    "moving": true
    }
   ],
   "edges": [
@@ -561,6 +569,11 @@
    {
     "from": "sidestep_right",
     "to": "parry"
+   },
+   {
+    "from": "idle",
+    "to": "running",
+    "stance": "standing"
    }
   ],
   "layouts": {
@@ -786,7 +799,8 @@
    "idle@standing>sidestep_right": 0
   },
   "migrations": [
-   "reed-sidesteps-v1"
+   "reed-sidesteps-v1",
+   "center-states-v1"
   ]
  }
 }

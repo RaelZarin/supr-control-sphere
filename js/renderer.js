@@ -1,11 +1,12 @@
 // Renderer: faceted diamond Control Sphere, octilinear links, select/travel/undo motion.
-import { STANCES, IDLE } from './data.js';
+import { STANCES, IDLE, centerLabel, optionLabel, raelPoseFor, isMoving } from './data.js';
 import { R_SPHERE, R_INNER, polar, screenDeg } from './layout.js';
 import { curveFn, tween, onFrame, cancelAll } from './anim.js';
 import { createFx } from './fx.js';
 import { octilinearRoute, polylinePath, polylineAt, partialPolyline } from './route.js';
 import { createJuice, motionOff, juiceMs, PRESETS } from './juice.js';
 import { PIXEL, VIEW, CHAMFER, MOTIF, snap, diamondPath, diamondWedge, diamondAtAngle, facetFills, embossPaths, consumeAmount } from './shape.js';
+import { raelGlyph } from './rael.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) if (v != null) e.setAttribute(k, v); for (const c of kids) if (c) e.append(c); return e; };
@@ -25,15 +26,6 @@ function mix(a, b, t) {
 function nodeDiamond(r, fill, stroke, sw, dash) {
   const pix = r < 24 ? 2 : PIXEL; const flat = Math.max(pix * 2, Math.round(r * 0.3));
   return el('path', { d: diamondPath(r, flat, pix), ...LINE, fill, stroke, 'stroke-width': sw, 'stroke-dasharray': dash, 'shape-rendering': 'crispEdges' });
-}
-
-function raelGlyph(scale = 1) { // top-down Rael: shoulders, head, blade pointing to the front (character, not the frame)
-  return el('g', { transform: `scale(${scale})`, 'pointer-events': 'none' },
-    el('ellipse', { cx: 0, cy: 3, rx: 15, ry: 8, fill: '#3e6c9c', stroke: INK, 'stroke-width': 2 }),
-    el('circle', { cx: 0, cy: 1, r: 7.5, fill: '#ede1a9', stroke: INK, 'stroke-width': 2 }),
-    el('path', { d: 'M-2,-6 L0,-12 L2,-6', fill: INK }),
-    el('path', { d: 'M11,1 L13,-19', stroke: '#ede1a9', 'stroke-width': 3, 'stroke-linecap': 'square' }),
-    el('path', { d: 'M11,1 L13,-19', stroke: INK, 'stroke-width': 1, 'stroke-linecap': 'square' }));
 }
 
 export function createRenderer(svg, handlers) {
@@ -76,6 +68,11 @@ export function createRenderer(svg, handlers) {
     if (curNode && !busy && !curNode.body.classList.contains('undoJuice')) {
       const b = motionOff(s) ? 0 : s.breathe * Math.sin(t * 2 * Math.PI / (3.2 / s.speed));
       curNode.body.setAttribute('transform', `scale(${(1 + b).toFixed(4)})`);
+      const stride = curNode.body.querySelector('.raelStride');
+      if (stride && curNode.moving) {
+        const step = motionOff(s) ? 0 : (Math.floor(t / (160 / Math.max(0.4, s.speed))) % 2 ? 2.2 : -2.2);
+        stride.setAttribute('transform', `translate(${step},0)`);
+      } else if (stride) stride.removeAttribute('transform');
     }
     fx(t, { stance: model.cur.stance, level: model.level }, s);
     applyRim(model);
@@ -138,15 +135,15 @@ export function createRenderer(svg, handlers) {
     b.append(nodeDiamond(r + 10, 'transparent', 'none', 0));
     b.append(nodeDiamond(r, st.color, INK, 2.6, move.stub ? '5 4' : null));
     b.append(nodeDiamond(Math.max(6, r - 6), 'none', MOTIF.cream, 1.6));
-    if (opts.center) b.append(raelGlyph(r / 30));
-    else b.append(el('text', { class: 'abbr', y: 5, fill: st.ink }, abbrev(move.label || id)));
+    if (opts.center) b.append(raelGlyph(r / 30, opts.pose || 'idle'));
+    else b.append(el('text', { class: 'abbr', y: 5, fill: st.ink }, abbrev(opts.label || move.label || id)));
     const tier = Math.min(3, Math.round(move.tier || 0));
     for (let i = 0; i < tier; i++) b.append(el('rect', { x: (i - (tier - 1) / 2) * 8 - 2.5, y: -r + 2, width: 5, height: 5, fill: '#ea5439', stroke: INK, 'stroke-width': 1 }));
     if (move.spend) b.append(el('g', { transform: `translate(${r * 0.72},${-r * 0.72})` }, el('rect', { x: -8, y: -8, width: 16, height: 16, fill: '#e88a4a', stroke: INK, 'stroke-width': 1.6 }), el('text', { class: 'badge', y: 3.5 }, String(move.spend))));
     if (opts.dirChevron != null) { const c = polar(opts.dirChevron, r + 7); b.append(el('path', { d: 'M-5,-4 L3,0 L-5,4', transform: `translate(${c.x},${c.y}) rotate(${opts.dirChevron})`, fill: 'none', stroke: st.color, 'stroke-width': 2.4, 'stroke-linecap': 'square' })); }
     g.append(b);
     if (opts.label) g.append(el('text', { class: 'label', y: r + 15 }, opts.label));
-    return { g, body: b };
+    return { g, body: b, moving: !!opts.moving };
   }
 
   function show(m, { enter = true } = {}) {
@@ -160,12 +157,12 @@ export function createRenderer(svg, handlers) {
     }
     for (let k = Math.max(0, n - 7); k < n - 1; k++) {
       const st = m.steps[k]; const age = n - 1 - k; const p = m.pos[k]; const mv = m.cat.move(st.id);
-      const { g } = nodeEl(st.id, mv, st.stance, { r: 17, trail: true, label: s.labels ? (st.id === IDLE ? 'Idle' : mv.label) : null });
+      const { g } = nodeEl(st.id, mv, st.stance, { r: 17, trail: true, label: s.labels ? optionLabel(m.cat, st.id, st.stance) : null });
       g.setAttribute('transform', `translate(${p.x},${p.y})`); g.setAttribute('opacity', Math.max(0.2, 0.75 - age * 0.12)); g.setAttribute('pointer-events', 'none');
       trailL.append(g);
     }
     const cm = m.cat.move(m.cur.id);
-    curNode = nodeEl(m.cur.id, cm, m.cur.stance, { r: 34, center: true, label: s.labels ? (m.cur.id === IDLE ? 'Idle' : cm.label) : null });
+    curNode = nodeEl(m.cur.id, cm, m.cur.stance, { r: 34, center: true, pose: raelPoseFor(m.cat, m.cur.id, m.cur.stance), moving: isMoving(cm), label: s.labels ? centerLabel(m.cat, m.cur.id, m.cur.stance) : null });
     curNode.g.setAttribute('transform', `translate(${m.cam.x},${m.cam.y})`);
     for (const o of m.options) {
       const from = m.cam, to = { x: m.cam.x + o.x, y: m.cam.y + o.y };
@@ -176,7 +173,7 @@ export function createRenderer(svg, handlers) {
       const node = nodeEl(o.id, o.move, o.resultStance, { dirChevron: s.style === 'direction' ? o.screen : null });
       nodeL.append(node.g);
       let lab = null;
-      if (s.labels) { lab = el('text', { class: 'label' }, o.id === IDLE ? 'Idle' : o.move.label); labelL.append(lab); }
+      if (s.labels) { lab = el('text', { class: 'label' }, optionLabel(m.cat, o.id, o.resultStance)); labelL.append(lab); }
       const labOff = { x: 0, y: 28 + 14 };
       let twigG = null;
       if (s.style === 'tree' && o.twigs.length) {

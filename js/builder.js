@@ -20,13 +20,13 @@ export function renderBuilder(root, app) {
   const keep = (d, id) => { d.open = open.has(id); d.addEventListener('toggle', () => (d.open ? open.add(id) : open.delete(id))); return d; };
 
   // --- Add move form
-  const f = { label: '', stance: cur.stance, result: '', height: 'mid', parent: here, dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '' };
+  const f = { label: '', stance: cur.stance, result: '', height: 'mid', parent: here, dir: 'auto', tier: '0', spend: '', windup: '0.25', action: '', recovery: '0.25', damage: '', moving: false };
   const inp = (k, type = 'text', attrs = {}) => h('input', { type, value: f[k], ...attrs, onInput: (e) => (f[k] = e.target.value) });
   const msg = h('div', { class: 'hint' });
   const add = () => {
     const label = f.label.trim(); if (!label) { msg.textContent = 'Give it a name.'; return; }
     let id = slug(label) || 'move'; while (tree.moves.some((x) => x.id === id)) id += '_2';
-    const mv = { id, label, height: f.height, tier: num(f.tier) ?? 0, windup: num(f.windup), action: num(f.action), recovery: num(f.recovery), damage: num(f.damage), spend: num(f.spend), stances: [f.stance], custom: true };
+    const mv = { id, label, height: f.height, tier: num(f.tier) ?? 0, windup: num(f.windup), action: num(f.action), recovery: num(f.recovery), damage: num(f.damage), spend: num(f.spend), stances: [f.stance], custom: true }; if (f.moving) mv.moving = true;
     if (f.result) mv.result_stance = f.result;
     Object.keys(mv).forEach((k) => mv[k] === undefined && delete mv[k]);
     const edge = parentToEdge(f.parent, id);
@@ -44,6 +44,7 @@ export function renderBuilder(root, app) {
     select('Parent (place in tree)', f.parent, parentOptions(tree), (v) => (f.parent = v)),
     select('Height', f.height, HEIGHTS, (v) => (f.height = v)),
     select('Direction', 'auto', DIRS.map((d) => [d.id, d.label]), (v) => (f.dir = v)),
+    h('label', { class: 'check' }, h('input', { type: 'checkbox', onChange: (e) => (f.moving = e.target.checked) }), ' Moving / locomotion'),
     h('div', { class: 'grid4' },
       h('label', {}, 'Tier', inp('tier', 'number', { step: 1, min: 0 })), h('label', {}, 'Spend', inp('spend', 'number', { step: 1, min: 0 })),
       h('label', {}, 'Windup', inp('windup', 'number', { step: 0.25, min: 0 })), h('label', {}, 'Action', inp('action', 'number', { step: 0.25, min: 0 })),
@@ -86,7 +87,8 @@ export function renderBuilder(root, app) {
         if (old) { const ok = app.cat.linkKey(old.from, mv.id, old.stance); const nk = app.cat.linkKey(ne.from, mv.id, ne.stance); if (t.placement[ok] != null) { t.placement[nk] = t.placement[ok]; delete t.placement[ok]; } if (t.links[ok]) { t.links[nk] = t.links[ok]; delete t.links[ok]; } t.edges = t.edges.filter((x) => x !== old); }
         t.edges.push(ne);
       }, { resetPath: true })),
-      select('Height', mv.height, HEIGHTS, (v) => app.updateTree((t) => { t.moves.find((x) => x.id === mv.id).height = v; })));
+      select('Height', mv.height, HEIGHTS, (v) => app.updateTree((t) => { t.moves.find((x) => x.id === mv.id).height = v; })),
+      h('label', { class: 'check' }, h('input', { type: 'checkbox', checked: !!mv.moving, onChange: (e) => app.updateTree((t) => { const x = t.moves.find((m) => m.id === mv.id); if (e.target.checked) x.moving = true; else delete x.moving; }) }), ' Moving'));
   })) : null;
 
   // --- Export

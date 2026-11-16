@@ -1,5 +1,5 @@
 // Stance bar: one button per stance under the sphere. Lit = current, enabled = a legal option leads there, greyed = not reachable now.
-import { STANCES } from './data.js';
+import { STANCES, centerChoices } from './data.js';
 import { h } from './ui.js';
 
 // Pick the plainest legal option that ends in `stance`: pure transitions (no damage) first, then the quickest windup.
@@ -25,4 +25,20 @@ export function renderStanceBar(el, model, onPick) {
     }, h('span', { class: 'glyph' }), h('b', {}, st.name), h('small', {}, on ? 'Current' : r ? `via ${r.label}` : 'Not available'));
     return b;
   }));
+}
+
+export function renderCenterBar(el, model, onPick) {
+  const stance = model.cur.stance;
+  const choices = centerChoices(model.cat, stance);
+  const curId = model.cur.id;
+  el.replaceChildren(...choices.map((c) => {
+    const on = c.id === curId;
+    const b = h('button', {
+      type: 'button', class: `centerBtn${on ? ' on' : ''}`, 'data-center': c.id,
+      title: on ? `${c.label}: current center` : `Enter ${c.label}`,
+      onClick: () => { if (on) return; onPick(c); },
+    }, c.label);
+    return b;
+  }));
+  el.hidden = choices.length < 2 && choices[0]?.kind === 'root';
 }

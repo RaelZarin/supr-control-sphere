@@ -1,8 +1,8 @@
 // Data: stances, default settings, and the momentum catalog (port of momentum_catalog.gd rules).
 export const STANCES = {
-  standing: { name: 'Whipping Reed', short: 'Standing', color: '#b9cde3', deep: '#3e6c9c', ink: '#232147' },
-  crouch: { name: 'Crouching Tiger', short: 'Crouched', color: '#6e6f7d', deep: '#2a2540', ink: '#ede1a9' },
-  midair: { name: 'Leaping Dragon', short: 'In air', color: '#f4eecf', deep: '#e8b84a', ink: '#232147' },
+  standing: { name: 'Whipping Reed', short: 'Standing', color: '#b9cde3', deep: '#3e6c9c', ink: '#232147', center: 'Idle', moving: 'Moving' },
+  crouch: { name: 'Crouching Tiger', short: 'Crouched', color: '#6e6f7d', deep: '#2a2540', ink: '#ede1a9', center: 'Crouching', moving: 'Crouch moving' },
+  midair: { name: 'Leaping Dragon', short: 'In air', color: '#f4eecf', deep: '#e8b84a', ink: '#232147', center: 'Airborne', moving: 'Air moving' },
 };
 export const PALETTE = { panel: '#232147', stage: '#1a1830', text: '#ede1a9', primary: '#ede1a9', danger: '#ea5439', ap: '#e88a4a', heal: '#b4bda5', neutral: '#545a78' };
 export const HEIGHTS = ['high', 'mid', 'low'];
@@ -31,6 +31,48 @@ export const IDLE = 'idle';
 // Stance center: Tiger idles on the Crouch node; Reed and Dragon idle on Idle.
 export function stanceRoot(stance) {
   return stance === 'crouch' ? 'crouch' : IDLE;
+}
+
+export function isMoving(move) { return !!(move && (move.moving || move.locomotion || move.state)); }
+export function isStateMove(move) { return !!(move && move.state); }
+
+export function centerLabel(cat, id, stance) {
+  const st = STANCES[stance] || STANCES.standing;
+  const mv = cat.move(id);
+  if (!id || id === IDLE || id === stanceRoot(stance)) return st.center;
+  if (isMoving(mv)) return mv.center || st.moving;
+  return mv.label || id;
+}
+
+export function optionLabel(cat, id, stance) {
+  const st = STANCES[stance] || STANCES.standing;
+  if (!id || id === IDLE || id === stanceRoot(stance)) return st.center;
+  return cat.move(id).label || id;
+}
+
+export function raelPoseFor(cat, id, stance) {
+  const mv = cat.move(id);
+  const moving = isMoving(mv);
+  if (stance === 'crouch') return moving ? 'crouch_moving' : (id === IDLE || id === stanceRoot(stance) || id === 'crouch' ? 'crouch' : 'idle');
+  if (moving && (mv.center === 'Running' || id === 'running')) return 'running';
+  if (moving) return 'moving';
+  return 'idle';
+}
+
+export function wheelNext(cat, stance, prev) {
+  return cat.legalNext(stance, prev).filter((id) => !isStateMove(cat.move(id)));
+}
+
+export function centerChoices(cat, stance) {
+  const st = STANCES[stance] || STANCES.standing;
+  const root = stanceRoot(stance);
+  const base = { id: root, stance, label: st.center, kind: 'root' };
+  const ids = cat.legalNext(stance, root === IDLE ? '' : root);
+  const states = ids.filter((id) => isStateMove(cat.move(id))).map((id) => {
+    const mv = cat.move(id);
+    return { id, stance, label: mv.center || st.moving, kind: 'state' };
+  });
+  return [base, ...states];
 }
 
 function treeKids(cat, id, stance) {
@@ -70,6 +112,7 @@ export function branchDepth(cat, nodeId, stance) {
 
 
 export const SPHERE_MIGRATION = 'reed-sidesteps-v1';
+export const CENTER_MIGRATION = 'center-states-v1';
 
 const SIDE_STEPS = [
   { id: 'sidestep_left', label: 'Sidestep left', dir: 'L', deg: 180, next: [{ id: 'lunge', angle: 166 }, { id: 'parry', angle: 194 }] },
@@ -112,10 +155,35 @@ function ensureSideSteps(tree) {
   return tree;
 }
 
+
+const LOCO_FLAGS = {
+  running: { moving: true, state: true, center: 'Running' },
+  sidestep: { moving: true },
+  sidestep_left: { moving: true },
+  sidestep_right: { moving: true },
+  roll: { moving: true },
+  hop: { moving: true },
+};
+
+function ensureLocomotion(tree) {
+  tree.moves ||= []; tree.edges ||= [];
+  for (const [id, patch] of Object.entries(LOCO_FLAGS)) {
+    const m = tree.moves.find((x) => x.id === id);
+    if (m && !m.custom) Object.assign(m, patch);
+  }
+  const stockRun = tree.moves.find((m) => m.id === 'running' && !m.custom);
+  if (stockRun && !tree.edges.some(isIdleRunning)) tree.edges.push({ from: 'idle', to: 'running', stance: 'standing' });
+  if (tree.moves.some((m) => m.id === 'charge') && !tree.edges.some((e) => e.from === 'running' && e.to === 'charge')) {
+    tree.edges.push({ from: 'running', to: 'charge' });
+  }
+  return tree;
+}
+
 export function applySphereUi(tree) {
-  tree.edges = (tree.edges || []).filter((e) => !isIdleRunning(e) && !isIdleSidestep(e));
+  tree.edges = (tree.edges || []).filter((e) => !isIdleSidestep(e));
   ensureSideSteps(tree);
-  tree.migrations = [...new Set([...(tree.migrations || []), SPHERE_MIGRATION])];
+  ensureLocomotion(tree);
+  tree.migrations = [...new Set([...(tree.migrations || []), SPHERE_MIGRATION, CENTER_MIGRATION])];
   return tree;
 }
 
@@ -125,14 +193,13 @@ export function mergeDefaultTree(saved, _defaults) {
   tree.moves ||= []; tree.edges ||= []; tree.placement ||= {}; tree.layouts ||= {};
   const seen = new Set(tree.migrations || []);
   if (!seen.has(SPHERE_MIGRATION)) {
-    const running = tree.moves.find((m) => m.id === 'running');
-    if (!running?.custom) tree.edges = tree.edges.filter((e) => !isIdleRunning(e));
     const sidestep = tree.moves.find((m) => m.id === 'sidestep');
     if (!sidestep?.custom) tree.edges = tree.edges.filter((e) => !isIdleSidestep(e));
     seen.add(SPHERE_MIGRATION);
-    tree.migrations = [...seen];
   }
-  return ensureSideSteps(tree);
+  if (!seen.has(CENTER_MIGRATION)) seen.add(CENTER_MIGRATION);
+  tree.migrations = [...seen];
+  return ensureLocomotion(ensureSideSteps(tree));
 }
 
 export function makeCatalog(tree) {

@@ -1,5 +1,5 @@
 // App glue: state (tree, settings, path), wiring between storage, renderer, input, controls and builder.
-import { makeCatalog, mergeSettings, DEFAULT_SETTINGS, STANCES, IDLE, walk, mergeDefaultTree } from './data.js';
+import { makeCatalog, mergeSettings, DEFAULT_SETTINGS, STANCES, IDLE, walk, mergeDefaultTree, centerLabel, optionLabel } from './data.js';
 import { buildModel, fxFromDepth } from './model.js';
 import { createRenderer } from './renderer.js';
 import { startLoop, tween } from './anim.js';
@@ -9,7 +9,7 @@ import { renderControls } from './controls.js';
 import { renderBuilder } from './builder.js';
 import { FACING_NAMES } from './layout.js';
 import { h } from './ui.js';
-import { renderStanceBar } from './stances.js';
+import { renderStanceBar, renderCenterBar } from './stances.js';
 import { bindSettingsButton } from './settings.js';
 import { createPlus } from './plus.js';
 
@@ -48,11 +48,12 @@ function renderHud() {
   $('#stance').replaceChildren(h('span', { class: 'dot', style: `background:${st.color}` }), h('b', {}, st.name), h('span', { class: 'muted' }, ` · ${st.short}`));
   const pips = Array.from({ length: Math.max(5, app.settings.fxFull) }, (_, i) => h('i', { class: i < m.depth ? 'on' : '', style: i < m.depth ? `background:${st.color}` : '' }));
   $('#depth').replaceChildren(h('span', { class: 'muted' }, 'Depth '), h('b', {}, String(m.depth)), h('span', { class: 'pips' }, pips));
-  const crumbs = [h('button', { type: 'button', class: 'crumb', onClick: () => go([]) }, 'Idle')];
-  app.path.forEach((id, i) => { crumbs.push(h('span', { class: 'arrow' }, '›')); crumbs.push(h('button', { type: 'button', class: 'crumb', style: `border-color:${STANCES[m.steps[i + 1].stance].color}`, onClick: () => go(app.path.slice(0, i + 1)) }, id === IDLE ? 'Idle' : app.cat.move(id).label)); });
+  const crumbs = [h('button', { type: 'button', class: 'crumb', onClick: () => go([]) }, STANCES.standing.center)];
+  app.path.forEach((id, i) => { const st = m.steps[i + 1].stance; crumbs.push(h('span', { class: 'arrow' }, '›')); crumbs.push(h('button', { type: 'button', class: 'crumb', style: `border-color:${STANCES[st].color}`, onClick: () => go(app.path.slice(0, i + 1)) }, optionLabel(app.cat, id, st))); });
   $('#crumbs').replaceChildren(...crumbs);
   $('#facing').textContent = `Attack facing: ${FACING_NAMES[((app.settings.facing % 360) + 360) % 360] || app.settings.facing + '°'}${app.settings.mirror ? ' · mirrored' : ''}`;
   renderStanceBar($('#stanceBar'), m, (id) => act.select(id));
+  renderCenterBar($('#centerBar'), m, (c) => go(c.kind === 'root' && c.id === IDLE ? [] : [c.id]));
   renderInfo();
   plus?.sync();
 }
@@ -63,8 +64,8 @@ function renderInfo() {
   const result = o ? o.resultStance : m.cur.stance;
   const facts = [['Height', mv.height], ['Tier', mv.tier], ['Windup', mv.windup], ['Action', mv.action], ['Recovery', mv.recovery], ['Damage', mv.damage], ['Spend', mv.spend], ['Advance', mv.advance]].filter(([, v]) => v != null);
   $('#info').replaceChildren(
-    h('div', { class: 'infoHead' }, h('b', {}, id === IDLE ? 'Idle' : mv.label), o ? h('span', { class: 'muted' }, ' · option') : h('span', { class: 'muted' }, ' · current'), mv.stub ? h('span', { class: 'tag' }, 'stub') : null, mv.custom ? h('span', { class: 'tag' }, 'custom') : null),
-    h('div', { class: 'muted small' }, m.empty && !o ? 'No follow-ups yet — use + to add, or link back to Idle' : (id === IDLE ? `Options: ${m.options.length}` : `${STANCES[performed].name} → ${STANCES[result].name}`)),
+    h('div', { class: 'infoHead' }, h('b', {}, o ? optionLabel(app.cat, id, o.resultStance || m.cur.stance) : centerLabel(app.cat, id, m.cur.stance)), o ? h('span', { class: 'muted' }, ' · option') : h('span', { class: 'muted' }, ' · current'), mv.stub ? h('span', { class: 'tag' }, 'stub') : null, mv.custom ? h('span', { class: 'tag' }, 'custom') : null),
+    h('div', { class: 'muted small' }, m.empty && !o ? `No follow-ups yet — use + to add, or link back to ${STANCES[m.cur.stance].center}` : (id === IDLE ? `Options: ${m.options.length}` : `${STANCES[performed].name} → ${STANCES[result].name}`)),
     h('div', { class: 'facts' }, facts.map(([k, v]) => h('span', {}, h('i', {}, k), ' ', String(v)))));
 }
 

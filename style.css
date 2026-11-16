@@ -127,3 +127,8 @@ textarea.export { font: 12px/1.35 ui-monospace, Menlo, monospace; resize: vertic
 .plusBack button.on { border-color: var(--text); background: color-mix(in srgb, var(--text) 18%, var(--panel)); }
 
 @media (max-width: 860px) { .plusPop { left: 8px !important; right: 8px; width: auto; bottom: 8px; top: auto !important; } }
+
+.centerBar { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 8px auto 0; max-width: 520px; width: 100%; }
+.centerBtn { padding: 5px 12px; border-radius: 10px; background: var(--panel); border: 2px solid var(--neutral); color: var(--text); font-weight: 600; font-size: 13px; cursor: pointer; }
+.centerBtn:hover { border-color: var(--text); }
+.centerBtn.on { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 18%, var(--panel)); cursor: default; }
