@@ -25,6 +25,7 @@ export function renderControls(root, app) {
       slider('Full FX at depth', s.fxFull, { min: 1, max: 10, step: 1, fmt: (v) => `step ${v}`, onInput: (v) => set({ fxFull: v }) }),
       slider('Max FX level', s.fxMax, { fmt: pct, onInput: (v) => set({ fxMax: v }) }),
       slider('Glow strength', s.glow, { fmt: pct, onInput: (v) => set({ glow: v }) }),
+      toggle('Rim distortion', !!s.rimDistortion, (v) => set({ rimDistortion: v })),
       h('div', { class: 'row' }, h('span', {}, 'Preview depth'), h('div', { class: 'btns' },
         h('button', { type: 'button', onClick: () => app.previewDepth(-1) }, '−'), h('button', { type: 'button', onClick: () => app.previewDepth(1) }, '+'))),
     ), 'fx'),

@@ -17,7 +17,7 @@ export const DEFAULT_SETTINGS = {
   style: 'tree', placement: 'sectors', ringLabels: 'height', facing: 0, mirror: false,
   fx: { standing: 1, crouch: 1, midair: 1 }, fxStart: 1, fxFull: 5, fxMax: 1,
   glow: 0.7, speed: 1, curve: 'overshoot', overshoot: 1.6, bend: 0.35, travelMs: 320,
-  line: 2, labels: true, stubs: true, breathe: 0.05, reducedMotion: false,
+  line: 2, labels: true, stubs: true, breathe: 0.05, reducedMotion: false, rimDistortion: false,
 };
 
 export function mergeSettings(s) {

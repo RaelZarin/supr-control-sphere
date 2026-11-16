@@ -63,7 +63,7 @@ export function createRenderer(svg, handlers) {
   const trailL = el('g', { 'pointer-events': 'none' }), linkL = el('g', { 'pointer-events': 'none' }), twigL = el('g', { 'pointer-events': 'none' }), nodeL = el('g'), labelL = el('g', { 'pointer-events': 'none' });
   const juiceL = el('g', { 'pointer-events': 'none' });
   world.append(trailL, linkL, twigL, nodeL, labelL, juiceL);
-  svg.append(body, facets, bg, emboss, glow, ring, fxLayer, deco, worldWrap);
+  svg.append(body, facets, bg, fxLayer, emboss, glow, ring, deco, worldWrap);
   const fx = createFx(fxLayer);
   const juice = createJuice(juiceL);
 
@@ -78,13 +78,24 @@ export function createRenderer(svg, handlers) {
       curNode.body.setAttribute('transform', `scale(${(1 + b).toFixed(4)})`);
     }
     fx(t, { stance: model.cur.stance, level: model.level }, s);
-    eatFrame(model.level);
+    applyRim(model);
   });
+
+  function stackFx(distort) {
+    if (distort) svg.append(emboss, glow, ring, fxLayer, deco, worldWrap);
+    else svg.append(fxLayer, emboss, glow, ring, deco, worldWrap);
+  }
 
   function eatFrame(level) {
     const eat = consumeAmount(level);
     const inset = snap(eat * PIXEL * 5);
     body.setAttribute('d', diamondPath(Math.max(PIXEL * 16, R_SPHERE - inset), Math.max(PIXEL * 2, CHAMFER - inset / 2)));
+  }
+
+  function applyRim(m) {
+    if (!m) return;
+    if (m.settings.rimDistortion) eatFrame(m.level);
+    else body.setAttribute('d', diamondPath());
   }
 
   function drawBackground(m) {
@@ -108,13 +119,16 @@ export function createRenderer(svg, handlers) {
 
   function drawRing(m) {
     const st = STANCES[m.cur.stance]; const dl = m.depthLevel; const s = m.settings;
-    const eat = consumeAmount(m.level); const keep = 1 - eat;
+    const distort = !!s.rimDistortion;
+    const eat = distort ? consumeAmount(m.level) : 0;
+    const keep = 1 - eat;
     const col = mix(st.color, st.deep, dl * 0.85);
     ring.style.stroke = col; ring.style.strokeWidth = (s.line + 1 + 4 * dl).toFixed(1); ring.style.opacity = keep.toFixed(2);
     glow.style.stroke = col; glow.style.strokeWidth = (6 + 16 * dl).toFixed(1); glow.style.opacity = (s.glow * (0.25 + 0.75 * dl) * keep).toFixed(2);
     emboss.style.opacity = keep.toFixed(2);
-    facets.style.opacity = (0.34 * keep).toFixed(2);
-    eatFrame(m.level);
+    facets.style.opacity = (0.34 * (distort ? keep : 1)).toFixed(2);
+    stackFx(distort);
+    applyRim(m);
   }
 
   function nodeEl(id, move, stance, opts = {}) {

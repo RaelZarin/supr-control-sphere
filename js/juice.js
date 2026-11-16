@@ -7,6 +7,7 @@ const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) if (v != null) e.setAttribute(k, v); return e; };
 
 export const PRESETS = {
+  rimDistortion: false, // paused pending a reference pass; tests still cover the on state
   select: {
     id: 'select',
     anticipMs: 40, anticipScale: 0.82,

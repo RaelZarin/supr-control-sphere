@@ -1,4 +1,4 @@
-// Stance edge FX around the faceted diamond. Depth chews the outline until it is fully consumed.
+// Stance edge FX under the faceted diamond. Rim chew is gated by settings.rimDistortion (default off).
 import { R_SPHERE } from './layout.js';
 import { STANCES } from './data.js';
 import { PIXEL, snap, MOTIF, diamondPath, diamondNormal, distortPath, consumeAmount } from './shape.js';
@@ -46,27 +46,29 @@ export function createFx(root) {
     rims[key].setAttribute('opacity', (eat < 0.05 || eat > 0.45 || !d) ? 0 : (0.4 + 0.4 * eat).toFixed(2));
   }
 
-  function drawAir(t, L) {
+  function drawAir(t, L, distort) {
     airHalo.setAttribute('stroke-width', String(PIXEL + snap(2 + 10 * L, 2)));
-    airHalo.setAttribute('opacity', ((0.25 + 0.45 * L) * (1 - consumeAmount(L))).toFixed(2));
-    paintRim('midair', t, L, STANCES.midair.color);
+    airHalo.setAttribute('opacity', ((0.25 + 0.45 * L) * (distort ? (1 - consumeAmount(L)) : 1)).toFixed(2));
+    if (distort) paintRim('midair', t, L, STANCES.midair.color);
+    else { rims.midair.setAttribute('d', ''); rims.midair.setAttribute('opacity', 0); }
     const n = Math.round(12 + 24 * L);
     pools.midair.forEach((w, i) => {
       if (i >= n) { w.setAttribute('opacity', 0); return; }
       const phase = (t * 0.14 + hash(i)) % 1;
       const ang = hash(i + 7) * 360 + snap(phase * 16, PIXEL);
-      place(w, ang, phase, L, 1, AIR, 8, i < n * (0.5 + 0.5 * L));
+      place(w, ang, phase, L, 1, AIR, 8, distort && i < n * (0.5 + 0.5 * L));
     });
   }
 
-  function drawCrouch(t, L) {
-    const eat = consumeAmount(L);
+  function drawCrouch(t, L, distort) {
+    const eat = distort ? consumeAmount(L) : 0;
     const inset = snap(eat * PIXEL * 5);
     vignette.setAttribute('d', diamondPath(Math.max(PIXEL * 16, R_SPHERE - inset)));
-    vignette.setAttribute('opacity', (0.1 + 0.35 * eat).toFixed(2));
-    paintRim('crouch', t, L, MOTIF.shadow);
+    vignette.setAttribute('opacity', (0.1 + 0.35 * (distort ? eat : L)).toFixed(2));
+    if (distort) paintRim('crouch', t, L, MOTIF.shadow);
+    else { rims.crouch.setAttribute('d', ''); rims.crouch.setAttribute('opacity', 0); }
     const n = Math.round(14 + 26 * L);
-    const chew = Math.round(n * (0.6 + 0.4 * L));
+    const chew = distort ? Math.round(n * (0.6 + 0.4 * L)) : 0;
     pools.crouch.forEach((p, i) => {
       if (i >= n) { p.setAttribute('opacity', 0); return; }
       if (i < chew) {
@@ -88,8 +90,9 @@ export function createFx(root) {
     });
   }
 
-  function drawStand(t, L) {
-    paintRim('standing', t, L, STANCES.standing.color);
+  function drawStand(t, L, distort) {
+    if (distort) paintRim('standing', t, L, STANCES.standing.color);
+    else { rims.standing.setAttribute('d', ''); rims.standing.setAttribute('opacity', 0); }
     const n = Math.round(12 + 36 * L);
     const pal = [STANCES.standing.color, STANCES.standing.deep, MOTIF.creamDeep];
     pools.standing.forEach((r, i) => {
@@ -98,7 +101,7 @@ export function createFx(root) {
       const s = snap(PIXEL * 2 + (8 + 16 * L) * (0.45 + 0.55 * hash(i)));
       const step = Math.floor((Math.sin(t * 1.4 + i * 0.9) + 1) * 2) / 4;
       const nrm = diamondNormal(ang, R_SPHERE);
-      const onRim = i < n * (0.6 + 0.4 * L);
+      const onRim = distort && i < n * (0.6 + 0.4 * L);
       const off = onRim ? (step * PIXEL * L - s * 0.15) : (s / 2 + step * 8 * L);
       const x = snap(nrm.px + nrm.x * off), y = snap(nrm.py + nrm.y * off);
       r.setAttribute('x', x - s / 2); r.setAttribute('y', y - s / 2);
@@ -119,7 +122,7 @@ export function createFx(root) {
       shown[k] += (goal - shown[k]) * (settings.reducedMotion ? 1 : 0.08);
       const vis = k === target.stance ? Math.max(shown[k], 0.001) : shown[k];
       groups[k].setAttribute('opacity', Math.min(1, shown[k] * 4).toFixed(2));
-      if (vis > 0.004) { groups[k].style.display = ''; draw[k](t, Math.max(0, shown[k])); }
+      if (vis > 0.004) { groups[k].style.display = ''; draw[k](t, Math.max(0, shown[k]), !!settings.rimDistortion); }
       else groups[k].style.display = 'none';
     }
   };

@@ -153,6 +153,17 @@ export function distortPath(level, t = 0, seed = 1, r = R_SPHERE, flat = CHAMFER
   return pts.length < 2 ? '' : polylinePath(pts);
 }
 
+// Frame geometry at a given FX level. When rimDistortion is off (the default), body and emboss stay fixed.
+export function outlineAtDepth(level, rimDistortion = false) {
+  const eat = rimDistortion ? consumeAmount(level) : 0;
+  const inset = snap(eat * PIXEL * 5);
+  return {
+    body: diamondPath(Math.max(PIXEL * 16, R_SPHERE - inset), Math.max(PIXEL * 2, CHAMFER - inset / 2)),
+    emboss: embossPaths(),
+    keep: 1 - eat,
+  };
+}
+
 // Pixel emboss: NW cream highlight, SE shadow, plus a cream outer stroke.
 export function embossPaths(r = R_SPHERE, flat = CHAMFER) {
   const src = snapPoly(diamondOctagon(r, flat));
