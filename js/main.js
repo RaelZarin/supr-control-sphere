@@ -38,7 +38,7 @@ function persist() { store.save(app.snapshot()); }
 
 function refresh(enter = false) {
   app.cat = makeCatalog(app.tree);
-  const m = buildModel(app.cat, app.settings, app.path);
+  const m = buildModel(app.cat, app.settings, app.path, { docked: !!app.inGame });
   if (app.boost) { m.depth += app.boost; Object.assign(m, fxFromDepth(m.depth, m.settings, m.cur.stance)); }
   app.model = m; renderer.show(m, { enter }); renderHud();
 }
@@ -167,6 +167,9 @@ $('#editBtn').onclick = () => { const on = plus?.setEdit(!plus.edit); $('#editBt
       }
       selectNew();
     };
+    app.undo = act.undo;
+    app.commit = () => toast(app.path.length ? 'Committed' : 'Nothing to commit');
+    app.redraw = (enter = false) => refresh(enter);
     plus = createPlus(app, { layer: $('#plusLayer'), pop: $('#plusPop'), svg, onAdd: afterPlace, onLink: afterPlace });
     plus.sync();
     bootInGame(app);

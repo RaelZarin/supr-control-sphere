@@ -5,7 +5,7 @@ import { curveFn, tween, onFrame, cancelAll } from './anim.js';
 import { createFx } from './fx.js';
 import { octilinearRoute, polylinePath, polylineAt, partialPolyline } from './route.js';
 import { createJuice, motionOff, juiceMs, PRESETS } from './juice.js';
-import { PIXEL, VIEW, CHAMFER, MOTIF, snap, diamondPath, diamondWedge, diamondAtAngle, facetFills, embossPaths, consumeAmount } from './shape.js';
+import { PIXEL, VIEW, MOTIF, snap, diamondPath, spherePath, diamondWedge, sphereAtAngle, facetFills, embossPaths, consumeAmount } from './shape.js';
 import { raelGlyph } from './rael.js';
 import { moveIcon } from './icon.js';
 
@@ -28,7 +28,7 @@ function nodeDiamond(r, fill, stroke, sw, dash) {
 export function createRenderer(svg, handlers) {
   svg.setAttribute('viewBox', `${-VIEW} ${-VIEW} ${VIEW * 2} ${VIEW * 2}`);
   svg.setAttribute('shape-rendering', 'crispEdges');
-  const maskD = diamondPath(R_SPHERE + 26);
+  const maskD = spherePath(-26);
   svg.innerHTML = `<defs>
     <filter id="fxBlur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
     <filter id="smokeBlur" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="5"/></filter>
@@ -36,7 +36,7 @@ export function createRenderer(svg, handlers) {
     <filter id="glowF" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
     <mask id="worldMask" maskUnits="userSpaceOnUse" x="${-VIEW}" y="${-VIEW}" width="${VIEW * 2}" height="${VIEW * 2}"><path d="${maskD}" fill="#fff"/></mask>
   </defs>`;
-  const body = el('path', { d: diamondPath(), fill: MOTIF.void, 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
+  const body = el('path', { d: spherePath(), fill: MOTIF.void, 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
   const facets = el('g', { 'pointer-events': 'none', opacity: 0.34, 'shape-rendering': 'crispEdges' });
   facetFills().forEach((f) => facets.append(el('path', { d: f.d, fill: f.fill })));
   const bg = el('g', { 'pointer-events': 'none' }); const fxLayer = el('g', { 'pointer-events': 'none' });
@@ -44,9 +44,10 @@ export function createRenderer(svg, handlers) {
   const emboss = el('g', { 'pointer-events': 'none', 'shape-rendering': 'crispEdges' },
     el('path', { d: ep.shadow, fill: 'none', stroke: MOTIF.shadow, 'stroke-width': PIXEL + 2, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square' }),
     el('path', { d: ep.highlight, fill: 'none', stroke: MOTIF.cream, 'stroke-width': PIXEL + 2, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square' }),
-    el('path', { d: ep.outer, fill: 'none', stroke: MOTIF.creamDeep, 'stroke-width': 3, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square' }));
-  const glow = el('path', { d: diamondPath(R_SPHERE + PIXEL), ...LINE, filter: 'url(#glowF)', 'pointer-events': 'none' });
-  const ring = el('path', { d: diamondPath(), class: 'ring', ...LINE, 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
+    el('path', { d: ep.outer, fill: 'none', stroke: MOTIF.creamDeep, 'stroke-width': 3, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square' }),
+    el('path', { d: ep.inner, fill: 'none', stroke: MOTIF.cream, 'stroke-width': 2, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square' }));
+  const glow = el('path', { d: spherePath(-PIXEL), ...LINE, filter: 'url(#glowF)', 'pointer-events': 'none' });
+  const ring = el('path', { d: spherePath(), class: 'ring', ...LINE, 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
   const deco = el('g', { 'pointer-events': 'none' });
   const world = el('g'); const worldWrap = el('g', { mask: 'url(#worldMask)' }, world);
   const trailL = el('g', { 'pointer-events': 'none' }), linkL = el('g', { 'pointer-events': 'none' }), twigL = el('g', { 'pointer-events': 'none' }), nodeL = el('g'), labelL = el('g', { 'pointer-events': 'none' });
@@ -83,13 +84,13 @@ export function createRenderer(svg, handlers) {
   function eatFrame(level) {
     const eat = consumeAmount(level);
     const inset = snap(eat * PIXEL * 5);
-    body.setAttribute('d', diamondPath(Math.max(PIXEL * 16, R_SPHERE - inset), Math.max(PIXEL * 2, CHAMFER - inset / 2)));
+    body.setAttribute('d', spherePath(inset));
   }
 
   function applyRim(m) {
     if (!m) return;
     if (m.settings.rimDistortion) eatFrame(m.level);
-    else body.setAttribute('d', diamondPath());
+    else body.setAttribute('d', spherePath());
   }
 
   function drawBackground(m) {
@@ -98,16 +99,16 @@ export function createRenderer(svg, handlers) {
     for (const sec of m.cat.tree.sectors) {
       const a0 = screenDeg(sec.start, s), a1 = screenDeg(sec.end, s);
       const [lo, hi] = a0 < a1 ? [a0, a1] : [a1, a0];
-      bg.append(el('path', { d: diamondWedge(lo, hi, 62, R_SPHERE - 4), fill: SECTOR_TINT[sec.height] || '#545a78', opacity: strong, stroke: '#545a78', 'stroke-opacity': 0.5, 'stroke-width': 1, 'stroke-linejoin': 'miter', 'pointer-events': 'none' }));
-      if (s.ringLabels === 'height') {
-        const mid = (lo + hi) / 2; const q = diamondAtAngle(mid, R_SPHERE + 18);
+      bg.append(el('path', { d: diamondWedge(lo, hi, 62, 4), fill: SECTOR_TINT[sec.height] || '#545a78', opacity: strong, stroke: '#545a78', 'stroke-opacity': 0.5, 'stroke-width': 1, 'stroke-linejoin': 'miter', 'pointer-events': 'none' }));
+      if (s.ringLabels === 'height' && !m.docked) {
+        const mid = (lo + hi) / 2; const q = sphereAtAngle(mid, -18);
         deco.append(el('text', { x: q.x, y: q.y + 4, class: 'ringLabel' }, sec.height.toUpperCase()));
       }
     }
-    if (s.ringLabels === 'facing') {
-      [['FWD', -90], ['R', 0], ['BACK', 90], ['L', 180]].forEach(([t, d]) => { const q = diamondAtAngle(d + s.facing, R_SPHERE + 18); deco.append(el('text', { x: q.x, y: q.y + 4, class: 'ringLabel' }, t)); });
+    if (s.ringLabels === 'facing' && !m.docked) {
+      [['FWD', -90], ['R', 0], ['BACK', 90], ['L', 180]].forEach(([t, d]) => { const q = sphereAtAngle(d + s.facing, -18); deco.append(el('text', { x: q.x, y: q.y + 4, class: 'ringLabel' }, t)); });
     }
-    const f = diamondAtAngle(s.facing - 90, R_SPHERE - PIXEL * 2);
+    const f = sphereAtAngle(s.facing - 90, PIXEL * 2);
     deco.append(el('path', { d: 'M0,-7 L7,5 L-7,5Z', transform: `translate(${f.x},${f.y}) rotate(${s.facing})`, fill: MOTIF.cream, stroke: INK, 'stroke-width': 1.5, 'stroke-linejoin': 'miter' }));
   }
 
@@ -170,14 +171,14 @@ function airTickPlate(left, max) {
 
   function show(m, { enter = true } = {}) {
     model = m; const s = m.settings; const fast = motionOff(s);
-    drawBackground(m); drawRing(m); setCam(m.cam);
+    drawBackground(m); drawRing(m); setCam(m.docked ? { x: 0, y: 0 } : m.cam);
     trailL.replaceChildren(); linkL.replaceChildren(); twigL.replaceChildren(); nodeL.replaceChildren(); labelL.replaceChildren(); juiceL.replaceChildren(); optNodes = new Map();
     const n = m.steps.length;
-    for (let k = Math.max(1, n - 7); k < n; k++) {
+    for (let k = m.docked ? n : Math.max(1, n - 7); k < n; k++) {
       const a = m.pos[k - 1], b = m.pos[k]; const age = n - 1 - k; const stc = STANCES[m.steps[k].stance].color;
       trailL.append(el('path', { d: polylinePath(octilinearRoute(a, b, s.bend)), ...LINE, stroke: stc, 'stroke-width': s.line + 2, 'stroke-opacity': Math.max(0.15, 0.7 - age * 0.1) }));
     }
-    for (let k = Math.max(0, n - 7); k < n - 1; k++) {
+    for (let k = m.docked ? n : Math.max(0, n - 7); k < n - 1; k++) {
       const st = m.steps[k]; const age = n - 1 - k; const p = m.pos[k]; const mv = m.cat.move(st.id);
       const { g } = nodeEl(st.id, mv, st.stance, { r: 17, trail: true, label: s.labels ? optionLabel(m.cat, st.id, st.stance) : null });
       g.setAttribute('transform', `translate(${p.x},${p.y})`); g.setAttribute('opacity', Math.max(0.2, 0.75 - age * 0.12)); g.setAttribute('pointer-events', 'none');
@@ -256,6 +257,7 @@ function airTickPlate(left, max) {
     });
     tween(motionOff(s) ? 0 : 160, (p) => { glow.style.opacity = (s.glow * (1 - 0.5 * p) + 0.2).toFixed(2); });
     curNode.g.setAttribute('opacity', 0.5);
+    if (model.docked) { tween(motionOff(s) ? 0 : 160 / s.speed, () => {}, { done: () => { busy = false; done(); } }); return true; }
     const from = { ...cam }, to = hit.to, pts = hit.pts.length > 1 ? hit.pts : octilinearRoute(from, to, o.link.bend);
     const ease = curveFn(s.curve === 'linear' ? 'linear' : 'easeOut', s.overshoot);
     tween(motionOff(s) ? 0 : s.travelMs / s.speed, (p) => setCam(polylineAt(pts, ease(p))), { done: () => { busy = false; done(); } });
@@ -272,6 +274,7 @@ function airTickPlate(left, max) {
     bump(curNode.body, 'undoJuice');
     juice.playUndo({ x: here.x, y: here.y, path: fwd, color: STANCES[model.cur.stance].color, settings: s });
     for (const [, v] of optNodes) { v.node.g.setAttribute('opacity', 0.12); if (v.lab) v.lab.setAttribute('opacity', 0.08); if (v.link) v.link.setAttribute('stroke-opacity', 0.08); if (v.twigG) v.twigG.setAttribute('opacity', 0); }
+    if (model.docked) { tween(juiceMs(PRESETS.undo.retractMs, s), () => {}, { done: () => { busy = false; done(); } }); return true; }
     const ease = curveFn(s.curve === 'linear' ? 'linear' : 'easeOut', s.overshoot);
     tween(juiceMs(PRESETS.undo.retractMs, s), (p) => setCam(polylineAt(back, ease(p))), { done: () => { busy = false; done(); } });
     return true;

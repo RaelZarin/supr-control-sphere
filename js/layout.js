@@ -1,4 +1,5 @@
 import { DIRS } from './data.js';
+import { sphereAtAngle, diskInSphere, diskInDock, TOP_SLOT, BOT_SLOT, DOCK_ARM, DOCK_RIGHT, DOCK_BOTTOM } from './shape.js';
 // Layout math: height-sector placement (port of MomentumCatalog.place_star_nodes), graph-arm angles, facing + mirror.
 export const R_INNER = 110, R_OUTER = 168, MIN_GAP = 64, R_SPHERE = 214;
 const rad = (d) => (d * Math.PI) / 180;
@@ -88,21 +89,23 @@ export function firstOverlap(opts, min = NODE_MIN) {
   return null;
 }
 
-export function resolveOverlaps(opts, min = NODE_MIN, clear = CENTER_CLEAR) {
+export function resolveOverlaps(opts, min = NODE_MIN, clear = CENTER_CLEAR, keep) {
   const out = opts.map((o) => ({ ...o }));
-  for (let step = 0; step < 32; step++) {
+  const hold = (o) => { if (keep) keep(o); };
+  for (let step = 0; step < 48; step++) {
     let moved = false;
     for (const o of out) {
       const d = Math.hypot(o.x, o.y) || 0.01;
-      if (d < clear) { const s = clear / d; o.x *= s; o.y *= s; moved = true; }
+      if (d < clear) { const s = clear / d; o.x *= s; o.y *= s; hold(o); moved = true; }
     }
     for (let i = 0; i < out.length; i++) for (let j = 0; j < i; j++) {
       const dx = out[i].x - out[j].x, dy = out[i].y - out[j].y;
       const d = Math.hypot(dx, dy) || 0.01;
       if (d < min) {
-        const push = (min - d) / 2 + 0.6, ux = dx / d, uy = dy / d;
+        const push = (min - d) / 2 + 0.8, ux = dx / d, uy = dy / d;
         out[i].x += ux * push; out[i].y += uy * push;
         out[j].x -= ux * push; out[j].y -= uy * push;
+        hold(out[i]); hold(out[j]);
         moved = true;
       }
     }
@@ -115,7 +118,94 @@ export function resolveOverlaps(opts, min = NODE_MIN, clear = CENTER_CLEAR) {
   return out;
 }
 
+
+function applyPos(o, x, y) {
+  o.x = x; o.y = y; o.r = Math.hypot(x, y);
+  o.screen = Math.atan2(y, x) * 180 / Math.PI;
+  return o;
+}
+
+function neckTarget(deg) {
+  const d = ((deg + 90) % 360 + 360) % 360 - 180; // 0 = up
+  if (Math.abs(d) <= 40) return -TOP_SLOT;
+  const u = ((deg - 90) % 360 + 360) % 360 - 180;
+  if (Math.abs(u) <= 40) return BOT_SLOT;
+  return null;
+}
+
+// Pull a disk onto the ray so it stays inside the silhouette (and optional dock crop).
+export function clampOption(o, nodeR = 28, pad = 8, docked = false) {
+  const ang = Math.atan2(o.y, o.x);
+  const deg = ang * 180 / Math.PI;
+  const hit = sphereAtAngle(deg);
+  const maxR = Math.max(CENTER_CLEAR, Math.hypot(hit.x, hit.y) - nodeR - pad);
+  let r = Math.hypot(o.x, o.y) || CENTER_CLEAR;
+  const neck = docked ? null : neckTarget(deg);
+  if (neck != null) r = Math.max(r, Math.abs(neck));
+  r = Math.min(Math.max(r, CENTER_CLEAR), maxR);
+  let x = Math.cos(ang) * r, y = Math.sin(ang) * r;
+  // If still overflowing (concave-safe fallback), walk inward.
+  const inside = docked ? diskInDock : diskInSphere;
+  for (let i = 0; i < 12 && !inside(x, y, nodeR, pad); i++) {
+    r = Math.max(CENTER_CLEAR, r - 8);
+    x = Math.cos(ang) * r; y = Math.sin(ang) * r;
+  }
+  if (docked) {
+    const limX = DOCK_RIGHT - nodeR - pad, limY = DOCK_BOTTOM - nodeR - pad;
+    if (x > limX) x = limX;
+    if (y > limY) y = limY;
+  }
+  return applyPos(o, x, y);
+}
+
+export function fitOptions(opts, nodeR = 28, docked = false) {
+  let out = opts.map((o) => ({ ...o }));
+  const keep = docked ? (o) => clampOption(o, nodeR, 6, true) : (o) => clampOption(o, nodeR, 8, false);
+  for (let i = 0; i < 3; i++) out = resolveOverlaps(out.map(keep), NODE_MIN, CENTER_CLEAR, keep);
+  return out;
+}
+
+function packArm(items, deg, arm = DOCK_ARM) {
+  const a = (deg * Math.PI) / 180, ux = Math.cos(a), uy = Math.sin(a);
+  const px = -uy, py = ux;
+  const n = items.length, gap = 66;
+  return items.map((o, i) => {
+    if (n <= 3) {
+      const side = (i - (n - 1) / 2) * gap;
+      return applyPos({ ...o }, ux * arm + px * side, uy * arm + py * side);
+    }
+    const cols = Math.ceil(n / 2);
+    const row = i < cols ? 0 : 1;
+    const col = i < cols ? i : i - cols;
+    const nCol = i < cols ? cols : n - cols;
+    const along = arm + row * gap;
+    const side = (col - (nCol - 1) / 2) * gap;
+    return applyPos({ ...o }, ux * along + px * side, uy * along + py * side);
+  });
+}
+
+// Compact d-pad for the cropped in-game corner: up / down / left / right around the origin.
+export function placeDockedOptions(cat, ids, stance, prev, settings, fromId) {
+  const full = placeOptions(cat, ids, stance, prev, { ...settings, sphereLayout: 'full' }, fromId);
+  const buckets = { high: [], low: [], left: [], right: [] };
+  for (const o of full) {
+    const h = cat.move(o.id).height || 'mid';
+    if (h === 'high') buckets.high.push(o);
+    else if (h === 'low') buckets.low.push(o);
+    else if (o.x < 0) buckets.left.push(o);
+    else buckets.right.push(o);
+  }
+  const seed = [
+    ...packArm(buckets.high, -90),
+    ...packArm(buckets.low, 90),
+    ...packArm(buckets.left, 180),
+    ...packArm(buckets.right, 0),
+  ];
+  return fitOptions(seed, 28, true);
+}
+
 export function placeOptions(cat, ids, stance, prev, settings, fromId) {
+  if (settings?.sphereLayout === 'dock') return placeDockedOptions(cat, ids, stance, prev, settings, fromId);
   const tree = cat.tree;
   const pinned = new Map();
   for (const id of ids) {
@@ -135,7 +225,7 @@ export function placeOptions(cat, ids, stance, prev, settings, fromId) {
     const deg = screenDeg(p.deg, settings);
     out.push({ id, ...p, screen: deg, ...polar(deg, p.r) });
   }
-  return resolveOverlaps(out);
+  return fitOptions(resolveOverlaps(out), 28, false);
 }
 
 export const FACING_NAMES = { 0: 'Forward', 45: 'Forward-right', 90: 'Right', 135: 'Back-right', 180: 'Backward', 225: 'Back-left', 270: 'Left', 315: 'Forward-left' };

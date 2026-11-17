@@ -22,8 +22,9 @@ export function fxFromDepth(depth, settings, stance) {
   return { level, depthLevel };
 }
 
-export function buildModel(cat, settingsIn, path) {
+export function buildModel(cat, settingsIn, path, extras = {}) {
   const settings = mergeSettings(settingsIn);
+  if (extras.docked) settings.sphereLayout = 'dock';
   const steps = walk(cat, path);
   const airTicks = remainingAirTicks(cat, steps);
   const airState = steps[steps.length - 1].stance === 'midair'
@@ -44,5 +45,5 @@ export function buildModel(cat, settingsIn, path) {
     return { ...o, move: cat.move(o.id), resultStance: rs, link: linkStyle(cat, settings, cat.sourceOf(cur.stance, cur.prev), o.id, cur.stance), twigs };
   });
   const { level, depthLevel } = fxFromDepth(depth, settings, cur.stance);
-  return { cat, settings, steps, pos, cur, cam: pos[pos.length - 1], options, depth, level, depthLevel, empty: options.length === 0, airTicks, airState };
+  return { cat, settings, steps, pos, cur, cam: extras.docked ? { x: 0, y: 0 } : pos[pos.length - 1], options, depth, level, depthLevel, empty: options.length === 0, airTicks, airState, docked: !!extras.docked };
 }

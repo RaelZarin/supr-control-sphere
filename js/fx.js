@@ -1,7 +1,6 @@
 // Stance edge FX under the faceted diamond. Rim chew is gated by settings.rimDistortion (default off).
-import { R_SPHERE } from './layout.js';
 import { STANCES } from './data.js';
-import { PIXEL, snap, MOTIF, diamondPath, diamondNormal, distortPath, consumeAmount } from './shape.js';
+import { PIXEL, snap, MOTIF, spherePath, sphereNormal, distortPath, consumeAmount } from './shape.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
@@ -17,16 +16,16 @@ export function createFx(root) {
     g.append(rim, ...(extra ? [extra] : []), layer); root.appendChild(g);
     groups[key] = g; rims[key] = rim; pools[key] = rects;
   }
-  const airHalo = el('path', { d: diamondPath(R_SPHERE + PIXEL), fill: 'none', stroke: STANCES.midair.color, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square', 'shape-rendering': 'crispEdges' });
+  const airHalo = el('path', { d: spherePath(-PIXEL), fill: 'none', stroke: STANCES.midair.color, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square', 'shape-rendering': 'crispEdges' });
   group('midair', 36, airHalo);
-  const vignette = el('path', { d: diamondPath(R_SPHERE), fill: MOTIF.shadow, 'shape-rendering': 'crispEdges' });
+  const vignette = el('path', { d: spherePath(), fill: MOTIF.shadow, 'shape-rendering': 'crispEdges' });
   group('crouch', 40, vignette);
   group('standing', 48);
   const shown = { standing: 0, crouch: 0, midair: 0 };
   let frozen = 0;
 
   function place(el, ang, phase, L, lift, palette, grow, onRim) {
-    const nrm = diamondNormal(ang, R_SPHERE);
+    const nrm = sphereNormal(ang);
     const out = onRim ? (hash(ang) - 0.35) * PIXEL * 2 * L : phase * (10 + 42 * L);
     const up = onRim ? 0 : phase * lift * (14 + 28 * L);
     const x = snap(nrm.px + nrm.x * out), y = snap(nrm.py + nrm.y * out - up);
@@ -63,7 +62,7 @@ export function createFx(root) {
   function drawCrouch(t, L, distort) {
     const eat = distort ? consumeAmount(L) : 0;
     const inset = snap(eat * PIXEL * 5);
-    vignette.setAttribute('d', diamondPath(Math.max(PIXEL * 16, R_SPHERE - inset)));
+    vignette.setAttribute('d', spherePath(inset));
     vignette.setAttribute('opacity', (0.1 + 0.35 * (distort ? eat : L)).toFixed(2));
     if (distort) paintRim('crouch', t, L, MOTIF.shadow);
     else { rims.crouch.setAttribute('d', ''); rims.crouch.setAttribute('opacity', 0); }
@@ -75,7 +74,7 @@ export function createFx(root) {
         const ang = (i * 360) / Math.max(chew, 1);
         const s = snap(PIXEL * 3 + 14 * L * (0.5 + 0.5 * hash(i + 4)));
         const step = Math.floor((Math.sin(t * 0.9 + i) + 1) * 2) / 4;
-        const nrm = diamondNormal(ang, R_SPHERE);
+        const nrm = sphereNormal(ang);
         const off = step * PIXEL * L - s * 0.2;
         const x = snap(nrm.px + nrm.x * off), y = snap(nrm.py + nrm.y * off);
         p.setAttribute('x', x - s / 2); p.setAttribute('y', y - s / 2);
@@ -100,7 +99,7 @@ export function createFx(root) {
       const ang = (i * 360) / Math.max(n, 1);
       const s = snap(PIXEL * 2 + (8 + 16 * L) * (0.45 + 0.55 * hash(i)));
       const step = Math.floor((Math.sin(t * 1.4 + i * 0.9) + 1) * 2) / 4;
-      const nrm = diamondNormal(ang, R_SPHERE);
+      const nrm = sphereNormal(ang);
       const onRim = distort && i < n * (0.6 + 0.4 * L);
       const off = onRim ? (step * PIXEL * L - s * 0.15) : (s / 2 + step * 8 * L);
       const x = snap(nrm.px + nrm.x * off), y = snap(nrm.py + nrm.y * off);
