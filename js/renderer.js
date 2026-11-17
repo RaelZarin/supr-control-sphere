@@ -1,11 +1,12 @@
 // Renderer: faceted diamond Control Sphere, octilinear links, select/travel/undo motion.
+// size-exception: 310 lines — docked silhouette swap and node radii stay with the draw path.
 import { STANCES, IDLE, centerLabel, optionLabel, raelPoseFor, isMoving } from './data.js';
 import { R_SPHERE, R_INNER, polar, screenDeg } from './layout.js';
 import { curveFn, tween, onFrame, cancelAll } from './anim.js';
 import { createFx } from './fx.js';
 import { octilinearRoute, polylinePath, polylineAt, partialPolyline } from './route.js';
 import { createJuice, motionOff, juiceMs, PRESETS } from './juice.js';
-import { PIXEL, VIEW, MOTIF, snap, diamondPath, spherePath, diamondWedge, sphereAtAngle, facetFills, embossPaths, consumeAmount } from './shape.js';
+import { PIXEL, VIEW, MOTIF, snap, diamondPath, spherePath, diamondWedge, sphereAtAngle, facetFills, embossPaths, consumeAmount, DOCK_SY, DOCK_NODE_R, DOCK_CENTER_R } from './shape.js';
 import { raelGlyph } from './rael.js';
 import { moveIcon } from './icon.js';
 
@@ -72,7 +73,7 @@ export function createRenderer(svg, handlers) {
         stride.setAttribute('transform', `translate(${step},0)`);
       } else if (stride) stride.removeAttribute('transform');
     }
-    fx(t, { stance: model.cur.stance, level: model.level }, s);
+    fx(t, { stance: model.cur.stance, level: model.level, docked: !!model.docked }, s);
     applyRim(model);
   });
 
@@ -81,25 +82,46 @@ export function createRenderer(svg, handlers) {
     else svg.append(fxLayer, emboss, glow, ring, deco, worldWrap);
   }
 
-  function eatFrame(level) {
+  function silSy(m) { return m && m.docked ? DOCK_SY : 1; }
+
+  function setSilhouette(sy = 1) {
+    const mask = svg.querySelector('#worldMask path');
+    if (mask) mask.setAttribute('d', spherePath(-26, PIXEL, sy));
+    body.setAttribute('d', spherePath(0, PIXEL, sy));
+    glow.setAttribute('d', spherePath(-PIXEL, PIXEL, sy));
+    ring.setAttribute('d', spherePath(0, PIXEL, sy));
+    facets.replaceChildren();
+    facetFills(PIXEL * 2, sy).forEach((f) => facets.append(el('path', { d: f.d, fill: f.fill })));
+    const ep = embossPaths(sy);
+    emboss.replaceChildren(
+      el('path', { d: ep.shadow, fill: 'none', stroke: MOTIF.shadow, 'stroke-width': PIXEL + 2, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square' }),
+      el('path', { d: ep.highlight, fill: 'none', stroke: MOTIF.cream, 'stroke-width': PIXEL + 2, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square' }),
+      el('path', { d: ep.outer, fill: 'none', stroke: MOTIF.creamDeep, 'stroke-width': 3, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square' }),
+      el('path', { d: ep.inner, fill: 'none', stroke: MOTIF.cream, 'stroke-width': 2, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square' }),
+    );
+  }
+
+  function eatFrame(level, sy = 1) {
     const eat = consumeAmount(level);
     const inset = snap(eat * PIXEL * 5);
-    body.setAttribute('d', spherePath(inset));
+    body.setAttribute('d', spherePath(inset, PIXEL, sy));
   }
 
   function applyRim(m) {
     if (!m) return;
-    if (m.settings.rimDistortion) eatFrame(m.level);
-    else body.setAttribute('d', spherePath());
+    const sy = silSy(m);
+    if (m.settings.rimDistortion) eatFrame(m.level, sy);
+    else body.setAttribute('d', spherePath(0, PIXEL, sy));
   }
 
   function drawBackground(m) {
     const s = m.settings; bg.replaceChildren(); deco.replaceChildren();
+    const sy = silSy(m);
     const strong = s.style === 'direction' ? 0.28 : 0.12;
     for (const sec of m.cat.tree.sectors) {
       const a0 = screenDeg(sec.start, s), a1 = screenDeg(sec.end, s);
       const [lo, hi] = a0 < a1 ? [a0, a1] : [a1, a0];
-      bg.append(el('path', { d: diamondWedge(lo, hi, 62, 4), fill: SECTOR_TINT[sec.height] || '#545a78', opacity: strong, stroke: '#545a78', 'stroke-opacity': 0.5, 'stroke-width': 1, 'stroke-linejoin': 'miter', 'pointer-events': 'none' }));
+      bg.append(el('path', { d: diamondWedge(lo, hi, 62, 4, sy), fill: SECTOR_TINT[sec.height] || '#545a78', opacity: strong, stroke: '#545a78', 'stroke-opacity': 0.5, 'stroke-width': 1, 'stroke-linejoin': 'miter', 'pointer-events': 'none' }));
       if (s.ringLabels === 'height' && !m.docked) {
         const mid = (lo + hi) / 2; const q = sphereAtAngle(mid, -18);
         deco.append(el('text', { x: q.x, y: q.y + 4, class: 'ringLabel' }, sec.height.toUpperCase()));
@@ -108,7 +130,7 @@ export function createRenderer(svg, handlers) {
     if (s.ringLabels === 'facing' && !m.docked) {
       [['FWD', -90], ['R', 0], ['BACK', 90], ['L', 180]].forEach(([t, d]) => { const q = sphereAtAngle(d + s.facing, -18); deco.append(el('text', { x: q.x, y: q.y + 4, class: 'ringLabel' }, t)); });
     }
-    const f = sphereAtAngle(s.facing - 90, PIXEL * 2);
+    const f = sphereAtAngle(s.facing - 90, PIXEL * 2, sy);
     deco.append(el('path', { d: 'M0,-7 L7,5 L-7,5Z', transform: `translate(${f.x},${f.y}) rotate(${s.facing})`, fill: MOTIF.cream, stroke: INK, 'stroke-width': 1.5, 'stroke-linejoin': 'miter' }));
   }
 
@@ -171,6 +193,7 @@ function airTickPlate(left, max) {
 
   function show(m, { enter = true } = {}) {
     model = m; const s = m.settings; const fast = motionOff(s);
+    setSilhouette(silSy(m));
     drawBackground(m); drawRing(m); setCam(m.docked ? { x: 0, y: 0 } : m.cam);
     trailL.replaceChildren(); linkL.replaceChildren(); twigL.replaceChildren(); nodeL.replaceChildren(); labelL.replaceChildren(); juiceL.replaceChildren(); optNodes = new Map();
     const n = m.steps.length;
@@ -189,7 +212,7 @@ function airTickPlate(left, max) {
     show.prevAir = m.airState;
     const grant = m.airState ? (m.cat.move('jumping').ticks || 8) : 0;
     curNode = nodeEl(m.cur.id, cm, m.cur.stance, {
-      r: 34, center: true, pose: raelPoseFor(m.cat, m.cur.id, m.cur.stance), moving: isMoving(cm),
+      r: m.docked ? DOCK_CENTER_R : 34, center: true, pose: raelPoseFor(m.cat, m.cur.id, m.cur.stance), moving: isMoving(cm),
       label: centerLabel(m.cat, m.cur.id, m.cur.stance),
       airTicks: m.airTicks, airTicksMax: grant, flipPop,
     });
@@ -200,7 +223,7 @@ function airTickPlate(left, max) {
       const stc = STANCES[o.resultStance].color;
       const link = el('path', { ...LINE, stroke: stc, 'stroke-width': s.line, 'stroke-opacity': 0.75, 'stroke-dasharray': o.move.stub ? '4 5' : null });
       linkL.append(link);
-      const node = nodeEl(o.id, o.move, o.resultStance, { dirChevron: s.style === 'direction' ? o.screen : null });
+      const node = nodeEl(o.id, o.move, o.resultStance, { r: m.docked ? DOCK_NODE_R : 28, dirChevron: s.style === 'direction' ? o.screen : null });
       node.g.setAttribute('tabindex', '0');
       node.g.setAttribute('focusable', 'true');
       node.g.setAttribute('role', 'button');

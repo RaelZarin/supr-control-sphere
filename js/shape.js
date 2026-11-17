@@ -26,12 +26,17 @@ export const DOCK_LEFT = 162;
 export const DOCK_RIGHT = 126;
 export const DOCK_BOTTOM = 126;
 export const DOCK_ARM = 76;
+// In-game only: shorten the silhouette by 40% (width stays the same). Isolated uses 1.
+export const DOCK_SY = 0.6;
+export const DOCK_NODE_R = 17;
+export const DOCK_CENTER_R = 20;
 
 export function snapPoly(pts, p = PIXEL) { return pts.map((q) => ({ x: snap(q.x, p), y: snap(q.y, p) })); }
 
 // Prototype, clockwise from the top tip. `inset` > 0 shrinks along the normals (parallel rim).
-export function sphereProfile() {
-  const H = SPHERE_H, W = SPHERE_W, N = NECK_W, T = TIP, TN = TOP_NECK, BN = BOT_NECK;
+export function sphereProfile(sy = 1) {
+  const H = snap(SPHERE_H * sy), W = SPHERE_W, N = NECK_W;
+  const T = snap(TIP * sy), TN = snap(TOP_NECK * sy), BN = snap(BOT_NECK * sy);
   return [
     { x: 0, y: -H },
     { x: N, y: -H + T }, { x: N, y: -H + T + TN },
@@ -74,10 +79,10 @@ export function insetPoly(pts, dist) {
   return out;
 }
 
-export function sphereVerts(inset = 0) { return insetPoly(sphereProfile(), inset); }
+export function sphereVerts(inset = 0, sy = 1) { return insetPoly(sphereProfile(sy), inset); }
 
-export function spherePath(inset = 0, p = PIXEL) {
-  return polylinePath(snapPoly(sphereVerts(inset), p)) + 'Z';
+export function spherePath(inset = 0, p = PIXEL, sy = 1) {
+  return polylinePath(snapPoly(sphereVerts(inset, sy), p)) + 'Z';
 }
 
 // 8 vertices of a chamfered 45° diamond. Used only for option-node gems.
@@ -124,25 +129,25 @@ function inSweep(deg, lo, hi) {
   const t = d < 0 ? d + 360 : d; return t > 0.05 && t < w - 0.05;
 }
 
-function vertsOf(inset = 0) { return sphereVerts(inset); }
+function vertsOf(inset = 0, sy = 1) { return sphereVerts(inset, sy); }
 
 // Outward point where the ray at `deg` (0 = right, -90 = up) hits the silhouette.
-export function sphereAtAngle(deg, inset = 0) {
+export function sphereAtAngle(deg, inset = 0, sy = 1) {
   const a = (deg * Math.PI) / 180, dx = Math.cos(a), dy = Math.sin(a);
-  const pts = vertsOf(inset);
+  const pts = vertsOf(inset, sy);
   let best = Infinity;
   for (let i = 0; i < pts.length; i++) {
     const t = raySeg(dx, dy, pts[i], pts[(i + 1) % pts.length]);
     if (t != null && t < best) best = t;
   }
-  if (!Number.isFinite(best)) return { x: dx * (SPHERE_W - inset), y: dy * (SPHERE_H - inset) };
+  if (!Number.isFinite(best)) return { x: dx * (SPHERE_W - inset), y: dy * (SPHERE_H * sy - inset) };
   return { x: dx * best, y: dy * best };
 }
 
 export const diamondAtAngle = (deg, inset = 0) => sphereAtAngle(deg, inset);
 
-export function sphereNormal(deg, inset = 0) {
-  const p = sphereAtAngle(deg, inset); const len = Math.hypot(p.x, p.y) || 1;
+export function sphereNormal(deg, inset = 0, sy = 1) {
+  const p = sphereAtAngle(deg, inset, sy); const len = Math.hypot(p.x, p.y) || 1;
   return { x: p.x / len, y: p.y / len, px: p.x, py: p.y };
 }
 
@@ -170,14 +175,14 @@ export function pointInPoly(x, y, pts) {
   return inside;
 }
 
-export function pointInDiamond(x, y, pad = 0) {
-  const pts = sphereProfile();
+export function pointInDiamond(x, y, pad = 0, sy = 1) {
+  const pts = sphereProfile(sy);
   if (pointInPoly(x, y, pts)) return true;
   return distToPoly(x, y, pts) <= pad + 0.51;
 }
 
-export function diskInSphere(x, y, r, pad = 0) {
-  const pts = sphereProfile();
+export function diskInSphere(x, y, r, pad = 0, sy = 1) {
+  const pts = sphereProfile(sy);
   if (!pointInPoly(x, y, pts) && distToPoly(x, y, pts) > 0.51) return false;
   return distToPoly(x, y, pts) >= r + pad - 0.51;
 }
@@ -187,16 +192,16 @@ export function diskInDock(x, y, r, pad = 4) {
   return diskInSphere(x, y, r, pad);
 }
 
-function vertsBetween(lo, hi, inset) {
-  const pts = vertsOf(inset);
+function vertsBetween(lo, hi, inset, sy = 1) {
+  const pts = vertsOf(inset, sy);
   const tagged = pts.map((p) => ({ p, a: angOf(p) })).filter((v) => inSweep(v.a, lo, hi));
   tagged.sort((A, B) => normDeg(A.a - lo) - normDeg(B.a - lo));
   return tagged.map((v) => v.p);
 }
 
 // Straight-edged sector from an inner radius to the silhouette (outerInset into the rim).
-export function diamondWedge(lo, hi, r0, outerInset = 4) {
-  const outer = [sphereAtAngle(lo, outerInset), ...vertsBetween(lo, hi, outerInset), sphereAtAngle(hi, outerInset)];
+export function diamondWedge(lo, hi, r0, outerInset = 4, sy = 1) {
+  const outer = [sphereAtAngle(lo, outerInset, sy), ...vertsBetween(lo, hi, outerInset, sy), sphereAtAngle(hi, outerInset, sy)];
   const inner = [];
   const a1 = (hi * Math.PI) / 180, a0 = (lo * Math.PI) / 180;
   inner.push({ x: Math.cos(a1) * r0, y: Math.sin(a1) * r0 });
@@ -215,9 +220,9 @@ function facetShade(a, b) {
   return BEVEL[Math.min(BEVEL.length - 1, Math.floor(t * BEVEL.length))] || MOTIF.stone;
 }
 
-export function facetFills(inset = PIXEL * 2) {
-  const outer = snapPoly(sphereVerts(0));
-  const inner = snapPoly(sphereVerts(inset));
+export function facetFills(inset = PIXEL * 2, sy = 1) {
+  const outer = snapPoly(sphereVerts(0, sy));
+  const inner = snapPoly(sphereVerts(inset, sy));
   return outer.map((p, i) => {
     const q = outer[(i + 1) % outer.length], a = inner[i], b = inner[(i + 1) % inner.length];
     return { d: polylinePath([p, q, b, a]) + 'Z', fill: facetShade(p, q) };
@@ -269,15 +274,15 @@ export function outlineAtDepth(level, rimDistortion = false) {
   return { body: spherePath(inset), emboss: embossPaths(), keep: 1 - eat };
 }
 
-export function embossPaths() {
-  const src = snapPoly(sphereVerts(0));
+export function embossPaths(sy = 1) {
+  const src = snapPoly(sphereVerts(0, sy));
   const hi = snapPoly(src.map((p) => ({ x: p.x - PIXEL, y: p.y - PIXEL })));
   const sh = snapPoly(src.map((p) => ({ x: p.x + PIXEL, y: p.y + PIXEL })));
   return {
     highlight: polylinePath(hi) + 'Z',
     shadow: polylinePath(sh) + 'Z',
-    outer: spherePath(-PIXEL),
-    ink: spherePath(0),
-    inner: spherePath(PIXEL * 2),
+    outer: spherePath(-PIXEL, PIXEL, sy),
+    ink: spherePath(0, PIXEL, sy),
+    inner: spherePath(PIXEL * 2, PIXEL, sy),
   };
 }

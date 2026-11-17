@@ -1,6 +1,6 @@
 // Stance edge FX under the faceted diamond. Rim chew is gated by settings.rimDistortion (default off).
 import { STANCES } from './data.js';
-import { PIXEL, snap, MOTIF, spherePath, sphereNormal, distortPath, consumeAmount } from './shape.js';
+import { PIXEL, snap, MOTIF, spherePath, sphereNormal, distortPath, consumeAmount, DOCK_SY } from './shape.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); return e; };
@@ -24,8 +24,8 @@ export function createFx(root) {
   const shown = { standing: 0, crouch: 0, midair: 0 };
   let frozen = 0;
 
-  function place(el, ang, phase, L, lift, palette, grow, onRim) {
-    const nrm = sphereNormal(ang);
+  function place(el, ang, phase, L, lift, palette, grow, onRim, sy = 1) {
+    const nrm = sphereNormal(ang, 0, sy);
     const out = onRim ? (hash(ang) - 0.35) * PIXEL * 2 * L : phase * (10 + 42 * L);
     const up = onRim ? 0 : phase * lift * (14 + 28 * L);
     const x = snap(nrm.px + nrm.x * out), y = snap(nrm.py + nrm.y * out - up);
@@ -45,7 +45,7 @@ export function createFx(root) {
     rims[key].setAttribute('opacity', (eat < 0.05 || eat > 0.45 || !d) ? 0 : (0.4 + 0.4 * eat).toFixed(2));
   }
 
-  function drawAir(t, L, distort) {
+  function drawAir(t, L, distort, sy = 1) {
     airHalo.setAttribute('stroke-width', String(PIXEL + snap(2 + 10 * L, 2)));
     airHalo.setAttribute('opacity', ((0.25 + 0.45 * L) * (distort ? (1 - consumeAmount(L)) : 1)).toFixed(2));
     if (distort) paintRim('midair', t, L, STANCES.midair.color);
@@ -55,14 +55,14 @@ export function createFx(root) {
       if (i >= n) { w.setAttribute('opacity', 0); return; }
       const phase = (t * 0.14 + hash(i)) % 1;
       const ang = hash(i + 7) * 360 + snap(phase * 16, PIXEL);
-      place(w, ang, phase, L, 1, AIR, 8, distort && i < n * (0.5 + 0.5 * L));
+      place(w, ang, phase, L, 1, AIR, 8, distort && i < n * (0.5 + 0.5 * L), sy);
     });
   }
 
-  function drawCrouch(t, L, distort) {
+  function drawCrouch(t, L, distort, sy = 1) {
     const eat = distort ? consumeAmount(L) : 0;
     const inset = snap(eat * PIXEL * 5);
-    vignette.setAttribute('d', spherePath(inset));
+    vignette.setAttribute('d', spherePath(inset, PIXEL, sy));
     vignette.setAttribute('opacity', (0.1 + 0.35 * (distort ? eat : L)).toFixed(2));
     if (distort) paintRim('crouch', t, L, MOTIF.shadow);
     else { rims.crouch.setAttribute('d', ''); rims.crouch.setAttribute('opacity', 0); }
@@ -74,7 +74,7 @@ export function createFx(root) {
         const ang = (i * 360) / Math.max(chew, 1);
         const s = snap(PIXEL * 3 + 14 * L * (0.5 + 0.5 * hash(i + 4)));
         const step = Math.floor((Math.sin(t * 0.9 + i) + 1) * 2) / 4;
-        const nrm = sphereNormal(ang);
+        const nrm = sphereNormal(ang, 0, sy);
         const off = step * PIXEL * L - s * 0.2;
         const x = snap(nrm.px + nrm.x * off), y = snap(nrm.py + nrm.y * off);
         p.setAttribute('x', x - s / 2); p.setAttribute('y', y - s / 2);
@@ -89,7 +89,7 @@ export function createFx(root) {
     });
   }
 
-  function drawStand(t, L, distort) {
+  function drawStand(t, L, distort, sy = 1) {
     if (distort) paintRim('standing', t, L, STANCES.standing.color);
     else { rims.standing.setAttribute('d', ''); rims.standing.setAttribute('opacity', 0); }
     const n = Math.round(12 + 36 * L);
@@ -99,7 +99,7 @@ export function createFx(root) {
       const ang = (i * 360) / Math.max(n, 1);
       const s = snap(PIXEL * 2 + (8 + 16 * L) * (0.45 + 0.55 * hash(i)));
       const step = Math.floor((Math.sin(t * 1.4 + i * 0.9) + 1) * 2) / 4;
-      const nrm = sphereNormal(ang);
+      const nrm = sphereNormal(ang, 0, sy);
       const onRim = distort && i < n * (0.6 + 0.4 * L);
       const off = onRim ? (step * PIXEL * L - s * 0.15) : (s / 2 + step * 8 * L);
       const x = snap(nrm.px + nrm.x * off), y = snap(nrm.py + nrm.y * off);
@@ -114,14 +114,20 @@ export function createFx(root) {
   const draw = { midair: drawAir, crouch: drawCrouch, standing: drawStand };
 
   return function update(time, target, settings) {
+    const sy = target.docked ? DOCK_SY : 1;
     const t = settings.reducedMotion ? frozen : time * settings.speed;
     if (!settings.reducedMotion) frozen = t;
+    if (airHalo.getAttribute('data-sy') !== String(sy)) {
+      airHalo.setAttribute('d', spherePath(-PIXEL, PIXEL, sy));
+      airHalo.setAttribute('data-sy', String(sy));
+      vignette.setAttribute('d', spherePath(0, PIXEL, sy));
+    }
     for (const k of Object.keys(groups)) {
       const goal = k === target.stance ? target.level : 0;
       shown[k] += (goal - shown[k]) * (settings.reducedMotion ? 1 : 0.08);
       const vis = k === target.stance ? Math.max(shown[k], 0.001) : shown[k];
       groups[k].setAttribute('opacity', Math.min(1, shown[k] * 4).toFixed(2));
-      if (vis > 0.004) { groups[k].style.display = ''; draw[k](t, Math.max(0, shown[k]), !!settings.rimDistortion); }
+      if (vis > 0.004) { groups[k].style.display = ''; draw[k](t, Math.max(0, shown[k]), !!settings.rimDistortion, sy); }
       else groups[k].style.display = 'none';
     }
   };
