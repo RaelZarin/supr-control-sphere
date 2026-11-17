@@ -222,7 +222,7 @@ body.inGame .layout { display: block; max-width: none; padding: 0; min-height: c
 body.inGame .stageCol { min-height: calc(100vh - 52px); padding: 0; gap: 0; }
 body.inGame .playfield { flex: 1; display: block; position: relative; min-height: calc(100vh - 52px); overflow: hidden; }
 body.inGame .stageWrap {
-  --sphereS: min(52vh, 48vw, 420px);
+  --sphereS: min(90vh, 60vw, 740px);
   position: absolute; right: 0; bottom: 0;
   width: var(--sphereS); height: var(--sphereS); aspect-ratio: 1; margin: 0;
   transform: none;

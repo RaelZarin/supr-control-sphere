@@ -78,8 +78,8 @@ function clearDockedSphere() {
   if (beat) { beat.style.width = ''; beat.style.flex = ''; }
 }
 
-// Place the diamond like the sketch: left rim flush with Undo, tip near 68% of the playfield,
-// d-pad in the strip, only the bottom tip (and the right if it reaches) clipped.
+// Place the diamond like the sketch: left rim flush with Undo, right and bottom clipped,
+// d-pad in the visible crop, hover strip above the tip.
 export function layoutDockedSphere() {
   const on = document.body.classList.contains('inGame');
   const play = document.querySelector('.playfield');
@@ -102,26 +102,37 @@ export function layoutDockedSphere() {
   beat.style.width = Math.round(oldBeat * 0.85) + 'px';
 
   const ur = undo.getBoundingClientRect();
-  const tipTarget = 0.68 * H;
-  const iconExt = DOCK_ARM + NODE_R + 8;
-  const maxS = Math.max(280, ((H - 8) - tipTarget) / (SPHERE_H + iconExt) * VIEW_SPAN);
-  const S = Math.min(maxS, 560);
-  const unit = S / VIEW_SPAN;
-  const halfW = SPHERE_W * unit;
-  const halfH = SPHERE_H * unit;
-  let centerY = tipTarget + halfH;
-  const downPx = iconExt * unit;
-  if (centerY + downPx > H - 8) centerY = H - 8 - downPx;
-  // Butt the upper-left body edge against Undo at the top of the column (sketch: no gap).
+  // At least 25% bigger than the previous 402px dock (502 at 1280×800). Grow further
+  // so the right tip runs off the edge while the left rim stays flush with Undo.
+  const minS = 502 * Math.min(W / 1280, H / 748);
+  const clip = 40;
   const x0 = -SPHERE_W, y0 = 0;
   const x1 = -NECK_W, y1 = -(SPHERE_H - TIP - TOP_NECK);
-  const yAt = (ur.top - pr.top - centerY) / unit;
-  let xAt = x0;
-  if (y1 !== y0 && yAt < 0 && yAt > y1) {
-    const t = (yAt - y0) / (y1 - y0);
-    xAt = x0 + t * (x1 - x0);
+  const flushX = (centerY, unit) => {
+    const yAt = (ur.top - pr.top - centerY) / unit;
+    if (y1 !== y0 && yAt < 0 && yAt > y1) return x0 + ((yAt - y0) / (y1 - y0)) * (x1 - x0);
+    return x0;
+  };
+  let S = minS, unit, halfW, halfH, centerX, centerY, xAt;
+  for (let i = 0; i < 6; i++) {
+    unit = S / VIEW_SPAN;
+    halfH = SPHERE_H * unit;
+    halfW = SPHERE_W * unit;
+    const minCY = 8 + INFO_H + 8 + halfH;
+    const maxCY = H - 8 - (NODE_R + 8) * unit;
+    centerY = Math.min(Math.max(ur.top - pr.top, minCY), maxCY);
+    xAt = flushX(centerY, unit);
+    const need = ((W + clip) - (ur.right - pr.left) + 2) / (SPHERE_W - xAt) * VIEW_SPAN;
+    S = Math.max(minS, need);
   }
-  const centerX = (ur.right - pr.left) - xAt * unit - 2;
+  unit = S / VIEW_SPAN;
+  halfW = SPHERE_W * unit;
+  halfH = SPHERE_H * unit;
+  const minCY = 8 + INFO_H + 8 + halfH;
+  const maxCY = H - 8 - (NODE_R + 8) * unit;
+  centerY = Math.min(Math.max(ur.top - pr.top, minCY), maxCY);
+  xAt = flushX(centerY, unit);
+  centerX = (ur.right - pr.left) - xAt * unit - 2;
 
   wrap.style.setProperty('--sphereS', `${S}px`);
   wrap.style.width = wrap.style.height = `${S}px`;
