@@ -6,7 +6,7 @@ import { curveFn, tween, onFrame, cancelAll } from './anim.js';
 import { createFx } from './fx.js';
 import { octilinearRoute, polylinePath, polylineAt, partialPolyline } from './route.js';
 import { createJuice, motionOff, juiceMs, PRESETS } from './juice.js';
-import { PIXEL, VIEW, MOTIF, snap, diamondPath, spherePath, diamondWedge, sphereAtAngle, facetFills, embossPaths, consumeAmount, DOCK_SY, DOCK_NODE_R, DOCK_CENTER_R } from './shape.js';
+import { PIXEL, VIEW, MOTIF, snap, diamondPath, spherePath, diamondWedge, sphereAtAngle, facetFills, embossPaths, consumeAmount, DOCK_NODE_R, DOCK_CENTER_R } from './shape.js';
 import { raelGlyph } from './rael.js';
 import { moveIcon } from './icon.js';
 
@@ -82,7 +82,7 @@ export function createRenderer(svg, handlers) {
     else svg.append(fxLayer, emboss, glow, ring, deco, worldWrap);
   }
 
-  function silSy(m) { return m && m.docked ? DOCK_SY : 1; }
+  function silSy(m) { return 1; }
 
   function setSilhouette(sy = 1) {
     const mask = svg.querySelector('#worldMask path');
@@ -169,7 +169,7 @@ function airTickPlate(left, max) {
     const st = STANCES[stance] || STANCES.standing; const r = opts.r || 28;
     const g = el('g', { class: 'node' + (move.stub ? ' stub' : '') + (opts.center ? ' center' : ''), 'data-id': opts.trail ? null : opts.center ? '__center' : id });
     const b = el('g', { class: 'body' });
-    b.append(nodeDiamond(r + 10, 'transparent', 'none', 0));
+    b.append(nodeDiamond(r + (r < 24 ? 2 : 10), 'transparent', 'none', 0));
     b.append(nodeDiamond(r, st.color, INK, 2.6, move.stub ? '5 4' : null));
     b.append(nodeDiamond(Math.max(6, r - 6), 'none', MOTIF.cream, 1.6));
     if (opts.center) {
@@ -213,12 +213,13 @@ function airTickPlate(left, max) {
     const grant = m.airState ? (m.cat.move('jumping').ticks || 8) : 0;
     curNode = nodeEl(m.cur.id, cm, m.cur.stance, {
       r: m.docked ? DOCK_CENTER_R : 34, center: true, pose: raelPoseFor(m.cat, m.cur.id, m.cur.stance), moving: isMoving(cm),
-      label: centerLabel(m.cat, m.cur.id, m.cur.stance),
+      label: m.docked ? null : centerLabel(m.cat, m.cur.id, m.cur.stance),
       airTicks: m.airTicks, airTicksMax: grant, flipPop,
     });
     curNode.g.setAttribute('transform', `translate(${m.cam.x},${m.cam.y})`);
+    curNode.g.setAttribute('aria-label', centerLabel(m.cat, m.cur.id, m.cur.stance));
     for (const o of m.options) {
-      const from = m.cam, to = { x: m.cam.x + o.x, y: m.cam.y + o.y };
+      const from = m.cam, to = m.docked ? { x: o.x, y: o.y } : { x: m.cam.x + o.x, y: m.cam.y + o.y };
       const pts = octilinearRoute(from, to, o.link.bend);
       const stc = STANCES[o.resultStance].color;
       const link = el('path', { ...LINE, stroke: stc, 'stroke-width': s.line, 'stroke-opacity': 0.75, 'stroke-dasharray': o.move.stub ? '4 5' : null });
@@ -233,7 +234,7 @@ function airTickPlate(left, max) {
       if (s.labels) { lab = el('text', { class: 'label' }, optionLabel(m.cat, o.id, o.resultStance)); labelL.append(lab); }
       const labOff = { x: 0, y: 28 + 14 };
       let twigG = null;
-      if (s.style === 'tree' && o.twigs.length) {
+      if (s.style === 'tree' && o.twigs.length && !m.docked) {
         twigG = el('g', { opacity: 0 });
         const k = o.twigs.length;
         o.twigs.forEach((tw, i) => {

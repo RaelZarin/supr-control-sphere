@@ -1,5 +1,5 @@
 import { DIRS } from './data.js';
-import { sphereAtAngle, diskInSphere, diskInDock, TOP_SLOT, BOT_SLOT, DOCK_ARM, DOCK_LEFT, DOCK_RIGHT, DOCK_BOTTOM } from './shape.js';
+import { sphereAtAngle, diskInSphere, diskInDock, TOP_SLOT, BOT_SLOT, DOCK_ARM, DOCK_LEFT, DOCK_RIGHT, DOCK_CLIP_Y, DOCK_NODE_R, DOCK_CENTER_R, DOCK_CAM_Y, SPHERE_H, TIP, dockHalfW } from './shape.js';
 // Layout math: height-sector placement (port of MomentumCatalog.place_star_nodes), graph-arm angles, facing + mirror.
 export const R_INNER = 110, R_OUTER = 168, MIN_GAP = 64, R_SPHERE = 214;
 const rad = (d) => (d * Math.PI) / 180;
@@ -89,14 +89,15 @@ export function firstOverlap(opts, min = NODE_MIN) {
   return null;
 }
 
-export function resolveOverlaps(opts, min = NODE_MIN, clear = CENTER_CLEAR, keep) {
+export function resolveOverlaps(opts, min = NODE_MIN, clear = CENTER_CLEAR, keep, origin = { x: 0, y: 0 }) {
   const out = opts.map((o) => ({ ...o }));
   const hold = (o) => { if (keep) keep(o); };
   for (let step = 0; step < 48; step++) {
     let moved = false;
     for (const o of out) {
-      const d = Math.hypot(o.x, o.y) || 0.01;
-      if (d < clear) { const s = clear / d; o.x *= s; o.y *= s; hold(o); moved = true; }
+      const dx = o.x - origin.x, dy = o.y - origin.y;
+      const d = Math.hypot(dx, dy) || 0.01;
+      if (d < clear) { const s = clear / d; o.x = origin.x + dx * s; o.y = origin.y + dy * s; hold(o); moved = true; }
     }
     for (let i = 0; i < out.length; i++) for (let j = 0; j < i; j++) {
       const dx = out[i].x - out[j].x, dy = out[i].y - out[j].y;
@@ -135,35 +136,44 @@ function neckTarget(deg) {
 
 // Pull a disk onto the ray so it stays inside the silhouette (and optional dock crop).
 export function clampOption(o, nodeR = 28, pad = 8, docked = false) {
+  if (docked) {
+    let x = o.x, y = o.y;
+    const limY = DOCK_CLIP_Y - nodeR - pad;
+    let yTop = -SPHERE_H + 8 + nodeR + pad;
+    while (yTop < limY && dockHalfW(yTop) < nodeR + pad) yTop += 2;
+    if (y > limY) y = limY;
+    if (y < yTop) y = yTop;
+    const room = Math.max(0, dockHalfW(y) - nodeR - pad - 6);
+    const maxX = Math.min(DOCK_RIGHT - nodeR - pad, room);
+    const minX = Math.max(-DOCK_LEFT + nodeR + pad, -room);
+    if (x > maxX) x = maxX;
+    if (x < minX) x = minX;
+    while (Math.abs(x) > 0 && !diskInDock(x, y, nodeR, pad)) x += x > 0 ? -1 : 1;
+    return applyPos(o, x, y);
+  }
   const ang = Math.atan2(o.y, o.x);
   const deg = ang * 180 / Math.PI;
   const hit = sphereAtAngle(deg);
   const maxR = Math.max(CENTER_CLEAR, Math.hypot(hit.x, hit.y) - nodeR - pad);
   let r = Math.hypot(o.x, o.y) || CENTER_CLEAR;
-  const neck = docked ? null : neckTarget(deg);
+  const neck = neckTarget(deg);
   if (neck != null) r = Math.max(r, Math.abs(neck));
   r = Math.min(Math.max(r, CENTER_CLEAR), maxR);
   let x = Math.cos(ang) * r, y = Math.sin(ang) * r;
-  // If still overflowing (concave-safe fallback), walk inward.
-  const inside = docked ? diskInDock : diskInSphere;
-  for (let i = 0; i < 12 && !inside(x, y, nodeR, pad); i++) {
+  for (let i = 0; i < 12 && !diskInSphere(x, y, nodeR, pad); i++) {
     r = Math.max(CENTER_CLEAR, r - 8);
     x = Math.cos(ang) * r; y = Math.sin(ang) * r;
-  }
-  if (docked) {
-    const limX = DOCK_RIGHT - nodeR - pad, limY = DOCK_BOTTOM - nodeR - pad;
-    const limXLeft = -DOCK_LEFT + nodeR + pad;
-    if (x > limX) x = limX;
-    if (x < limXLeft) x = limXLeft;
-    if (y > limY) y = limY;
   }
   return applyPos(o, x, y);
 }
 
 export function fitOptions(opts, nodeR = 28, docked = false) {
   let out = opts.map((o) => ({ ...o }));
-  const keep = docked ? (o) => clampOption(o, nodeR, 6, true) : (o) => clampOption(o, nodeR, 8, false);
-  for (let i = 0; i < 3; i++) out = resolveOverlaps(out.map(keep), NODE_MIN, CENTER_CLEAR, keep);
+  const keep = docked ? (o) => clampOption(o, nodeR, 4, true) : (o) => clampOption(o, nodeR, 8, false);
+  const min = docked ? nodeR * 2 + 6 : NODE_MIN;
+  const clear = docked ? DOCK_CENTER_R + nodeR + 6 : CENTER_CLEAR;
+  const origin = docked ? { x: 0, y: DOCK_CAM_Y } : { x: 0, y: 0 };
+  for (let i = 0; i < 3; i++) out = resolveOverlaps(out.map(keep), min, clear, keep, origin);
   return out;
 }
 
@@ -186,7 +196,22 @@ function packArm(items, deg, arm = DOCK_ARM) {
   });
 }
 
-// Compact d-pad for the cropped in-game corner: up / down / left / right around the origin.
+// Pack options into the visible upper cap after the diamond is shifted down 40%.
+function dockSlots(n, nodeR) {
+  const pad = 4, gap = nodeR * 2 + 6, slots = [];
+  for (let row = 0; row < 8 && slots.length < n + 4; row++) {
+    const y = DOCK_CLIP_Y - nodeR - pad - 8 - row * gap;
+    if (y - nodeR < -SPHERE_H + TIP * 0.5) break;
+    const half = dockHalfW(y) - nodeR - pad - 6;
+    if (half < 0) continue;
+    let nCol = Math.max(1, Math.floor((2 * half) / gap) + 1);
+    if (nCol > 1 && ((nCol - 1) * gap) / 2 > half) nCol -= 1;
+    const span = (nCol - 1) * gap;
+    for (let c = 0; c < nCol; c++) slots.push({ x: nCol === 1 ? 0 : -span / 2 + c * gap, y });
+  }
+  return slots;
+}
+
 export function placeDockedOptions(cat, ids, stance, prev, settings, fromId) {
   const full = placeOptions(cat, ids, stance, prev, { ...settings, sphereLayout: 'full' }, fromId);
   const buckets = { high: [], low: [], left: [], right: [] };
@@ -197,13 +222,16 @@ export function placeDockedOptions(cat, ids, stance, prev, settings, fromId) {
     else if (o.x < 0) buckets.left.push(o);
     else buckets.right.push(o);
   }
-  const seed = [
-    ...packArm(buckets.high, -90),
-    ...packArm(buckets.low, 90),
-    ...packArm(buckets.left, 180),
-    ...packArm(buckets.right, 0),
-  ];
-  return fitOptions(seed, 28, true);
+  const ordered = [...buckets.low, ...buckets.left, ...buckets.right, ...buckets.high];
+  const slots = dockSlots(ordered.length, DOCK_NODE_R);
+  let mid = 0, midD = Infinity;
+  slots.forEach((s, i) => {
+    const d = Math.hypot(s.x, s.y - DOCK_CAM_Y);
+    if (d < midD) { midD = d; mid = i; }
+  });
+  const rest = slots.filter((_, i) => i !== mid);
+  const seed = ordered.map((o, i) => applyPos({ ...o }, (rest[i] || rest[rest.length - 1] || { x: 0, y: DOCK_CAM_Y }).x, (rest[i] || rest[rest.length - 1] || { x: 0, y: DOCK_CAM_Y }).y));
+  return fitOptions(seed, DOCK_NODE_R, true);
 }
 
 export function placeOptions(cat, ids, stance, prev, settings, fromId) {

@@ -1,5 +1,6 @@
 // Faceted pixel-diamond geometry. The sphere uses a data-driven necked silhouette;
 // small option nodes keep a chamfered octagon so they stay readable at r≈28.
+// size-exception: 301 lines — dock crop and vertical-scale path helpers stay in this file.
 import { polylinePath, isOctilinear } from './route.js';
 
 export const PIXEL = 6;
@@ -26,10 +27,12 @@ export const DOCK_LEFT = 162;
 export const DOCK_RIGHT = 126;
 export const DOCK_BOTTOM = 126;
 export const DOCK_ARM = 76;
-// In-game only: shorten the silhouette by 40% (width stays the same). Isolated uses 1.
-export const DOCK_SY = 0.6;
-export const DOCK_NODE_R = 17;
-export const DOCK_CENTER_R = 20;
+export const DOCK_SY = 1;
+// After moving the unsquashed diamond down 40% of its height, the screen clips at y≈-154.
+export const DOCK_CLIP_Y = -154;
+export const DOCK_NODE_R = 11;
+export const DOCK_CENTER_R = 13;
+export const DOCK_CAM_Y = -200;
 
 export function snapPoly(pts, p = PIXEL) { return pts.map((q) => ({ x: snap(q.x, p), y: snap(q.y, p) })); }
 
@@ -187,8 +190,19 @@ export function diskInSphere(x, y, r, pad = 0, sy = 1) {
   return distToPoly(x, y, pts) >= r + pad - 0.51;
 }
 
+export function dockHalfW(y) {
+  const ay = Math.abs(y);
+  if (ay >= SPHERE_H) return 0;
+  const tipY = SPHERE_H - TIP, neckY = SPHERE_H - TIP - TOP_NECK;
+  if (ay >= tipY) return NECK_W * ((SPHERE_H - ay) / TIP);
+  if (ay >= neckY) return NECK_W;
+  return NECK_W + ((neckY - ay) / neckY) * (SPHERE_W - NECK_W);
+}
+
 export function diskInDock(x, y, r, pad = 4) {
-  if (x + r + pad > DOCK_RIGHT || y + r + pad > DOCK_BOTTOM || x - r - pad < -DOCK_LEFT) return false;
+  if (x + r + pad > DOCK_RIGHT || x - r - pad < -DOCK_LEFT) return false;
+  if (y + r + pad > DOCK_CLIP_Y) return false;
+  if (y - r - pad < -SPHERE_H + 8) return false;
   return diskInSphere(x, y, r, pad);
 }
 

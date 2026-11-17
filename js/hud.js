@@ -1,7 +1,7 @@
 // In-game chrome: one bottom strip with vitals, the Beat Track (Ley + ticks), and Undo/Commit.
 // The necked diamond is docked flush against Undo/Commit; Beat Track is 15% narrower than before.
 import { h } from './ui.js';
-import { SPHERE_W, SPHERE_H, VIEW, DOCK_ARM, NECK_W, TIP, TOP_NECK, DOCK_SY } from './shape.js';
+import { SPHERE_W, SPHERE_H, VIEW, DOCK_ARM, NECK_W, TIP, TOP_NECK } from './shape.js';
 
 const LANE_H = 16;
 const BASE_LANES = 2;
@@ -107,7 +107,7 @@ export function layoutDockedSphere() {
   const minS = 502 * Math.min(W / 1280, H / 748);
   const clip = 40;
   const x0 = -SPHERE_W, y0 = 0;
-  const x1 = -NECK_W, y1 = -(SPHERE_H - TIP - TOP_NECK) * DOCK_SY;
+  const x1 = -NECK_W, y1 = -(SPHERE_H - TIP - TOP_NECK);
   const flushX = (centerY, unit) => {
     const yAt = (ur.top - pr.top - centerY) / unit;
     if (y1 !== y0 && yAt < 0 && yAt > y1) return x0 + ((yAt - y0) / (y1 - y0)) * (x1 - x0);
@@ -116,23 +116,21 @@ export function layoutDockedSphere() {
   let S = minS, unit, halfW, halfH, centerX, centerY, xAt;
   for (let i = 0; i < 6; i++) {
     unit = S / VIEW_SPAN;
-    halfH = SPHERE_H * DOCK_SY * unit;
+    halfH = SPHERE_H * unit;
     halfW = SPHERE_W * unit;
-    const minCY = 8 + INFO_H + 8 + halfH;
-    const maxCY = H - 8 - (NODE_R + 8) * unit;
-    centerY = Math.min(Math.max(ur.top - pr.top, minCY), maxCY);
+    centerY = ur.top - pr.top;
     xAt = flushX(centerY, unit);
     const need = ((W + clip) - (ur.right - pr.left) + 2) / (SPHERE_W - xAt) * VIEW_SPAN;
     S = Math.max(minS, need);
   }
   unit = S / VIEW_SPAN;
   halfW = SPHERE_W * unit;
-  halfH = SPHERE_H * DOCK_SY * unit;
-  const minCY = 8 + INFO_H + 8 + halfH;
-  const maxCY = H - 8 - (NODE_R + 8) * unit;
-  centerY = Math.min(Math.max(ur.top - pr.top, minCY), maxCY);
-  xAt = flushX(centerY, unit);
+  halfH = SPHERE_H * unit;
+  // Keep the 1c343e3 X placement (flush at Undo's top); then move down 40% of painted height.
+  const baseY = ur.top - pr.top;
+  xAt = flushX(baseY, unit);
   centerX = (ur.right - pr.left) - xAt * unit - 2;
+  centerY = baseY + 2 * halfH * 0.4;
 
   wrap.style.setProperty('--sphereS', `${S}px`);
   wrap.style.width = wrap.style.height = `${S}px`;
