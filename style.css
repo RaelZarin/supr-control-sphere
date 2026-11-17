@@ -217,32 +217,31 @@ body.inGame .stageWrap { width: min(100%, 42vh, calc(100vh - 460px)); margin: 0 
 .dockActions button:hover { background: #2d2a55; }
 .dockActions button:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 #0c0a1d; }
 
-/* In-game: one bottom strip, diamond cropped into the bottom-right corner. */
+/* In-game: bottom strip (HP, narrower Beat Track, Undo/Commit) with the diamond flush against Undo. */
 body.inGame .layout { display: block; max-width: none; padding: 0; min-height: calc(100vh - 52px); overflow: hidden; }
 body.inGame .stageCol { min-height: calc(100vh - 52px); padding: 0; gap: 0; }
 body.inGame .playfield { flex: 1; display: block; position: relative; min-height: calc(100vh - 52px); overflow: hidden; }
 body.inGame .stageWrap {
-  --sphereS: min(58vh, 62vw, 560px);
+  --sphereS: min(52vh, 48vw, 420px);
   position: absolute; right: 0; bottom: 0;
   width: var(--sphereS); height: var(--sphereS); aspect-ratio: 1; margin: 0;
-  transform: translate(31.5%, 33.6%);
+  transform: none;
   z-index: 3; pointer-events: none;
 }
-body.inGame .stageWrap #sphere, body.inGame .stageWrap .plusLayer { pointer-events: auto; }
+body.inGame .stageWrap #sphere, body.inGame .stageWrap .plusLayer { pointer-events: visiblePainted; }
 body.inGame .plusLayer { display: none; }
 body.inGame .moveInfo {
-  position: absolute; z-index: 5; margin: 0;
-  right: 10px; bottom: calc(var(--sphereVisible, 56%) + 10px);
+  position: absolute; z-index: 6; margin: 0;
+  right: 10px; top: 40%;
   width: min(260px, 36vw); height: 48px; min-height: 48px;
 }
-body.inGame { --sphereS: min(58vh, 62vw, 560px); --sphereVisibleW: calc(var(--sphereS) * 0.47); --sphereVisibleH: calc(var(--sphereS) * 0.56); }
-body.inGame .moveInfo { bottom: calc(var(--sphereVisibleH) + 10px); }
 body.inGame .hudReserve {
   display: flex; flex-direction: column; justify-content: flex-end;
-  position: absolute; left: 8px; bottom: 8px; margin: 0; width: auto;
-  right: calc(var(--sphereVisibleW) + 48px);
+  position: absolute; left: 8px; bottom: 8px; margin: 0;
+  width: max-content; right: auto; max-width: calc(100% - 16px);
   min-height: var(--hudReserveH, 136px); z-index: 4;
 }
+body.inGame .beatPanel { flex: 0 0 auto; width: 45.8vw; min-width: 200px; }
 body.inGame .gameHud {
   width: 100%; margin: 0; padding: 0; gap: 8px;
   background: none; border: none; box-shadow: none;

@@ -1,5 +1,5 @@
 import { DIRS } from './data.js';
-import { sphereAtAngle, diskInSphere, diskInDock, TOP_SLOT, BOT_SLOT, DOCK_ARM, DOCK_RIGHT, DOCK_BOTTOM } from './shape.js';
+import { sphereAtAngle, diskInSphere, diskInDock, TOP_SLOT, BOT_SLOT, DOCK_ARM, DOCK_LEFT, DOCK_RIGHT, DOCK_BOTTOM } from './shape.js';
 // Layout math: height-sector placement (port of MomentumCatalog.place_star_nodes), graph-arm angles, facing + mirror.
 export const R_INNER = 110, R_OUTER = 168, MIN_GAP = 64, R_SPHERE = 214;
 const rad = (d) => (d * Math.PI) / 180;
@@ -152,7 +152,9 @@ export function clampOption(o, nodeR = 28, pad = 8, docked = false) {
   }
   if (docked) {
     const limX = DOCK_RIGHT - nodeR - pad, limY = DOCK_BOTTOM - nodeR - pad;
+    const limXLeft = -DOCK_LEFT + nodeR + pad;
     if (x > limX) x = limX;
+    if (x < limXLeft) x = limXLeft;
     if (y > limY) y = limY;
   }
   return applyPos(o, x, y);

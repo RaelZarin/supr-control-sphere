@@ -1,6 +1,7 @@
 // In-game chrome: one bottom strip with vitals, the Beat Track (Ley + ticks), and Undo/Commit.
-// The necked diamond is docked and cropped in the bottom-right via CSS. Enemy lanes reserved above.
+// The necked diamond is docked flush against Undo/Commit; Beat Track is 15% narrower than before.
 import { h } from './ui.js';
+import { SPHERE_W, SPHERE_H, VIEW, DOCK_ARM, NECK_W, TIP, TOP_NECK } from './shape.js';
 
 const LANE_H = 16;
 const BASE_LANES = 2;
@@ -59,6 +60,92 @@ function beats(settings) {
   );
 }
 
+
+const NODE_R = 28;
+const INFO_H = 48;
+const VIEW_SPAN = VIEW * 2;
+
+function clearDockedSphere() {
+  const wrap = document.querySelector('.stageWrap');
+  const info = document.getElementById('moveInfo');
+  const beat = document.querySelector('.beatPanel');
+  if (wrap) {
+    wrap.style.left = wrap.style.top = wrap.style.right = wrap.style.bottom = '';
+    wrap.style.width = wrap.style.height = wrap.style.transform = '';
+    wrap.style.removeProperty('--sphereS');
+  }
+  if (info) info.style.left = info.style.top = info.style.right = info.style.bottom = info.style.width = '';
+  if (beat) { beat.style.width = ''; beat.style.flex = ''; }
+}
+
+// Place the diamond like the sketch: left rim flush with Undo, tip near 68% of the playfield,
+// d-pad in the strip, only the bottom tip (and the right if it reaches) clipped.
+export function layoutDockedSphere() {
+  const on = document.body.classList.contains('inGame');
+  const play = document.querySelector('.playfield');
+  const wrap = document.querySelector('.stageWrap');
+  const info = document.getElementById('moveInfo');
+  const plate = document.querySelector('.hudPlate');
+  const beat = document.querySelector('.beatPanel');
+  const undo = document.querySelector('.dockActions');
+  if (!on) { clearDockedSphere(); return; }
+  if (!play || !wrap || !undo || !plate || !beat) return;
+
+  const pr = play.getBoundingClientRect();
+  const W = pr.width, H = pr.height;
+  const hpW = plate.getBoundingClientRect().width;
+  const undoW = undo.getBoundingClientRect().width;
+  // Previous beat used leftover after HP, Undo, and a 47%-of-S + 48px diamond reserve.
+  const oldS = Math.min(0.58 * window.innerHeight, 0.62 * window.innerWidth, 560);
+  const oldBeat = Math.max(200, W - 8 - hpW - 8 - 8 - undoW - (oldS * 0.47 + 48));
+  beat.style.flex = '0 0 auto';
+  beat.style.width = Math.round(oldBeat * 0.85) + 'px';
+
+  const ur = undo.getBoundingClientRect();
+  const tipTarget = 0.68 * H;
+  const iconExt = DOCK_ARM + NODE_R + 8;
+  const maxS = Math.max(280, ((H - 8) - tipTarget) / (SPHERE_H + iconExt) * VIEW_SPAN);
+  const S = Math.min(maxS, 560);
+  const unit = S / VIEW_SPAN;
+  const halfW = SPHERE_W * unit;
+  const halfH = SPHERE_H * unit;
+  let centerY = tipTarget + halfH;
+  const downPx = iconExt * unit;
+  if (centerY + downPx > H - 8) centerY = H - 8 - downPx;
+  // Butt the upper-left body edge against Undo at the top of the column (sketch: no gap).
+  const x0 = -SPHERE_W, y0 = 0;
+  const x1 = -NECK_W, y1 = -(SPHERE_H - TIP - TOP_NECK);
+  const yAt = (ur.top - pr.top - centerY) / unit;
+  let xAt = x0;
+  if (y1 !== y0 && yAt < 0 && yAt > y1) {
+    const t = (yAt - y0) / (y1 - y0);
+    xAt = x0 + t * (x1 - x0);
+  }
+  const centerX = (ur.right - pr.left) - xAt * unit - 2;
+
+  wrap.style.setProperty('--sphereS', `${S}px`);
+  wrap.style.width = wrap.style.height = `${S}px`;
+  wrap.style.left = `${centerX - S / 2}px`;
+  wrap.style.top = `${centerY - S / 2}px`;
+  wrap.style.right = wrap.style.bottom = 'auto';
+  wrap.style.transform = 'none';
+
+  if (info) {
+    const tipY = centerY - halfH;
+    const iw = Math.min(260, 0.36 * W);
+    const ix = Math.max(8, Math.min(centerX - iw / 2, W - iw - 8));
+    const iy = Math.max(8, tipY - 8 - INFO_H);
+    info.style.left = `${ix}px`;
+    info.style.top = `${iy}px`;
+    info.style.right = info.style.bottom = 'auto';
+    info.style.width = `${iw}px`;
+  }
+}
+
+function scheduleDockLayout() {
+  requestAnimationFrame(layoutDockedSphere);
+}
+
 export function renderGameHud(el, settings = {}) {
   if (!el) return;
   el.replaceChildren(
@@ -102,6 +189,7 @@ export function refreshGameHud(app) {
   const room = DOCK_CHROME + cap * LANE_H;
   reserve.style.setProperty('--hudReserveH', (overflow === 'expand' ? room : compact) + 'px');
   reserve.style.setProperty('--hudDockH', compact + 'px');
+  scheduleDockLayout();
 }
 
 export function setInGame(on, app) {
@@ -125,4 +213,8 @@ export function bootInGame(app) {
     app.inGame = !app.inGame;
     setInGame(app.inGame, app);
   });
+  if (!bootInGame.bound) {
+    bootInGame.bound = true;
+    window.addEventListener('resize', scheduleDockLayout);
+  }
 }

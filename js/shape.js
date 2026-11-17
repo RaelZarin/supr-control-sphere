@@ -21,7 +21,8 @@ export const BOT_NECK = 84;
 // Mid-neck radii, used to drop high/low icons into the vertical necks.
 export const TOP_SLOT = SPHERE_H - TIP - TOP_NECK / 2; // 231
 export const BOT_SLOT = SPHERE_H - TIP - BOT_NECK / 2; // 222
-// In-game crop: keep the origin + a tight d-pad on-screen; tip and left rim stay visible.
+// In-game crop: origin + d-pad stay visible; left point tucks behind Undo, bottom tip is clipped.
+export const DOCK_LEFT = 162;
 export const DOCK_RIGHT = 126;
 export const DOCK_BOTTOM = 126;
 export const DOCK_ARM = 76;
@@ -182,7 +183,7 @@ export function diskInSphere(x, y, r, pad = 0) {
 }
 
 export function diskInDock(x, y, r, pad = 4) {
-  if (x + r + pad > DOCK_RIGHT || y + r + pad > DOCK_BOTTOM) return false;
+  if (x + r + pad > DOCK_RIGHT || y + r + pad > DOCK_BOTTOM || x - r - pad < -DOCK_LEFT) return false;
   return diskInSphere(x, y, r, pad);
 }
 
