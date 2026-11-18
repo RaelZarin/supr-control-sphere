@@ -1,5 +1,5 @@
 import { DIRS } from './data.js';
-import { sphereAtAngle, diskInSphere, diskInDock, TOP_SLOT, BOT_SLOT, DOCK_ARM, DOCK_LEFT, DOCK_RIGHT, DOCK_CLIP_Y, DOCK_NODE_R, DOCK_CENTER_R, DOCK_CAM_Y, SPHERE_H, TIP, dockHalfW } from './shape.js';
+import { sphereAtAngle, diskInSphere, diskInDock, TOP_SLOT, BOT_SLOT, DOCK_ARM, DOCK_BOX, DOCK_NODE_R, DOCK_CENTER_R, DOCK_CAM_X, DOCK_CAM_Y, gemExtent } from './shape.js';
 // Layout math: height-sector placement (port of MomentumCatalog.place_star_nodes), graph-arm angles, facing + mirror.
 export const R_INNER = 110, R_OUTER = 168, MIN_GAP = 64, R_SPHERE = 214;
 const rad = (d) => (d * Math.PI) / 180;
@@ -138,17 +138,12 @@ function neckTarget(deg) {
 export function clampOption(o, nodeR = 28, pad = 8, docked = false) {
   if (docked) {
     let x = o.x, y = o.y;
-    const limY = DOCK_CLIP_Y - nodeR - pad;
-    let yTop = -SPHERE_H + 8 + nodeR + pad;
-    while (yTop < limY && dockHalfW(yTop) < nodeR + pad) yTop += 2;
+    const limX = DOCK_BOX.r - nodeR - pad, limXLeft = DOCK_BOX.l + nodeR + pad;
+    const limY = DOCK_BOX.b - nodeR - pad, limYTop = DOCK_BOX.t + nodeR + pad;
+    if (x > limX) x = limX;
+    if (x < limXLeft) x = limXLeft;
     if (y > limY) y = limY;
-    if (y < yTop) y = yTop;
-    const room = Math.max(0, dockHalfW(y) - nodeR - pad - 6);
-    const maxX = Math.min(DOCK_RIGHT - nodeR - pad, room);
-    const minX = Math.max(-DOCK_LEFT + nodeR + pad, -room);
-    if (x > maxX) x = maxX;
-    if (x < minX) x = minX;
-    while (Math.abs(x) > 0 && !diskInDock(x, y, nodeR, pad)) x += x > 0 ? -1 : 1;
+    if (y < limYTop) y = limYTop;
     return applyPos(o, x, y);
   }
   const ang = Math.atan2(o.y, o.x);
@@ -169,10 +164,11 @@ export function clampOption(o, nodeR = 28, pad = 8, docked = false) {
 
 export function fitOptions(opts, nodeR = 28, docked = false) {
   let out = opts.map((o) => ({ ...o }));
-  const keep = docked ? (o) => clampOption(o, nodeR, 4, true) : (o) => clampOption(o, nodeR, 8, false);
-  const min = docked ? nodeR * 2 + 6 : NODE_MIN;
-  const clear = docked ? DOCK_CENTER_R + nodeR + 6 : CENTER_CLEAR;
-  const origin = docked ? { x: 0, y: DOCK_CAM_Y } : { x: 0, y: 0 };
+  const packR = docked ? gemExtent(nodeR) : nodeR;
+  const keep = docked ? (o) => clampOption(o, packR, 4, true) : (o) => clampOption(o, nodeR, 8, false);
+  const min = docked ? packR * 2 + 6 : NODE_MIN;
+  const clear = docked ? gemExtent(DOCK_CENTER_R) + packR + 6 : CENTER_CLEAR;
+  const origin = docked ? { x: DOCK_CAM_X, y: DOCK_CAM_Y } : { x: 0, y: 0 };
   for (let i = 0; i < 3; i++) out = resolveOverlaps(out.map(keep), min, clear, keep, origin);
   return out;
 }
@@ -180,57 +176,59 @@ export function fitOptions(opts, nodeR = 28, docked = false) {
 function packArm(items, deg, arm = DOCK_ARM) {
   const a = (deg * Math.PI) / 180, ux = Math.cos(a), uy = Math.sin(a);
   const px = -uy, py = ux;
-  const n = items.length, gap = 66;
+  const n = items.length, pad = 4, r = gemExtent(DOCK_NODE_R);
+  const ox = DOCK_CAM_X, oy = DOCK_CAM_Y;
+  const want = r * 2 + 8;
+  // Left/right arms fan vertically; up/down arms fan horizontally. Keep the fan in the panel.
+  const horiz = Math.abs(ux) > 0.7;
+  const room = horiz
+    ? Math.min((oy + uy * arm) - (DOCK_BOX.t + r + pad), (DOCK_BOX.b - r - pad) - (oy + uy * arm))
+    : Math.min((ox + ux * arm) - (DOCK_BOX.l + r + pad), (DOCK_BOX.r - r - pad) - (ox + ux * arm));
+  const gap = n > 1 ? Math.min(want, Math.max(r * 2 + 4, (2 * Math.max(0, room)) / (n - 1))) : want;
   return items.map((o, i) => {
-    if (n <= 3) {
-      const side = (i - (n - 1) / 2) * gap;
-      return applyPos({ ...o }, ux * arm + px * side, uy * arm + py * side);
-    }
-    const cols = Math.ceil(n / 2);
-    const row = i < cols ? 0 : 1;
-    const col = i < cols ? i : i - cols;
-    const nCol = i < cols ? cols : n - cols;
-    const along = arm + row * gap;
-    const side = (col - (nCol - 1) / 2) * gap;
-    return applyPos({ ...o }, ux * along + px * side, uy * along + py * side);
+    const side = (i - (n - 1) / 2) * gap;
+    return applyPos({ ...o }, ox + ux * arm + px * side, oy + uy * arm + py * side);
   });
 }
 
-// Pack options into the visible upper cap after the diamond is shifted down 40%.
-function dockSlots(n, nodeR) {
-  const pad = 4, gap = nodeR * 2 + 6, slots = [];
-  for (let row = 0; row < 8 && slots.length < n + 4; row++) {
-    const y = DOCK_CLIP_Y - nodeR - pad - 8 - row * gap;
-    if (y - nodeR < -SPHERE_H + TIP * 0.5) break;
-    const half = dockHalfW(y) - nodeR - pad - 6;
-    if (half < 0) continue;
-    let nCol = Math.max(1, Math.floor((2 * half) / gap) + 1);
-    if (nCol > 1 && ((nCol - 1) * gap) / 2 > half) nCol -= 1;
-    const span = (nCol - 1) * gap;
-    for (let c = 0; c < nCol; c++) slots.push({ x: nCol === 1 ? 0 : -span / 2 + c * gap, y });
-  }
-  return slots;
-}
-
-export function placeDockedOptions(cat, ids, stance, prev, settings, fromId) {
-  const full = placeOptions(cat, ids, stance, prev, { ...settings, sphereLayout: 'full' }, fromId);
-  const buckets = { high: [], low: [], left: [], right: [] };
+// Split mid options across left/right; extras past 4 spill onto the lighter vertical arm.
+function bucketDocked(full, cat) {
+  const high = [], low = [], left = [], right = [];
+  const mids = [];
   for (const o of full) {
     const h = cat.move(o.id).height || 'mid';
-    if (h === 'high') buckets.high.push(o);
-    else if (h === 'low') buckets.low.push(o);
-    else if (o.x < 0) buckets.left.push(o);
-    else buckets.right.push(o);
+    if (h === 'high') high.push(o);
+    else if (h === 'low') low.push(o);
+    else mids.push(o);
   }
-  const ordered = [...buckets.low, ...buckets.left, ...buckets.right, ...buckets.high];
-  const slots = dockSlots(ordered.length, DOCK_NODE_R);
-  let mid = 0, midD = Infinity;
-  slots.forEach((s, i) => {
-    const d = Math.hypot(s.x, s.y - DOCK_CAM_Y);
-    if (d < midD) { midD = d; mid = i; }
-  });
-  const rest = slots.filter((_, i) => i !== mid);
-  const seed = ordered.map((o, i) => applyPos({ ...o }, (rest[i] || rest[rest.length - 1] || { x: 0, y: DOCK_CAM_Y }).x, (rest[i] || rest[rest.length - 1] || { x: 0, y: DOCK_CAM_Y }).y));
+  mids.sort((a, b) => a.x - b.x);
+  for (const o of mids) (o.x < 0 ? left : right).push(o);
+  if (left.length === 0 && right.length >= 2) left.push(...right.splice(0, Math.floor(right.length / 2)));
+  else if (right.length === 0 && left.length >= 2) right.unshift(...left.splice(Math.ceil(left.length / 2)));
+  else {
+    while (right.length - left.length > 1) left.push(right.shift());
+    while (left.length - right.length > 1) right.unshift(left.pop());
+  }
+  const overflow = (arm) => {
+    while (arm.length > 4) {
+      const dest = high.length <= low.length ? high : low;
+      dest.push(arm.pop());
+    }
+  };
+  overflow(left); overflow(right);
+  return { high, low, left, right };
+}
+
+// Five-slot d-pad in the corner panel: center is the current state, extras stack on each arm.
+export function placeDockedOptions(cat, ids, stance, prev, settings, fromId) {
+  const full = placeOptions(cat, ids, stance, prev, { ...settings, sphereLayout: 'full' }, fromId);
+  const buckets = bucketDocked(full, cat);
+  const seed = [
+    ...packArm(buckets.high, -90),
+    ...packArm(buckets.low, 90),
+    ...packArm(buckets.left, 180),
+    ...packArm(buckets.right, 0),
+  ];
   return fitOptions(seed, DOCK_NODE_R, true);
 }
 

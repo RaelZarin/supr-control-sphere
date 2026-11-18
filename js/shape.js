@@ -1,6 +1,6 @@
 // Faceted pixel-diamond geometry. The sphere uses a data-driven necked silhouette;
 // small option nodes keep a chamfered octagon so they stay readable at r≈28.
-// size-exception: 301 lines — dock crop and vertical-scale path helpers stay in this file.
+// size-exception: 307 lines — dock crop and vertical-scale path helpers stay in this file.
 import { polylinePath, isOctilinear } from './route.js';
 
 export const PIXEL = 6;
@@ -26,13 +26,18 @@ export const BOT_SLOT = SPHERE_H - TIP - BOT_NECK / 2; // 222
 export const DOCK_LEFT = 162;
 export const DOCK_RIGHT = 126;
 export const DOCK_BOTTOM = 126;
-export const DOCK_ARM = 76;
+export const DOCK_ARM = 80;
 export const DOCK_SY = 1;
 // After moving the unsquashed diamond down 40% of its height, the screen clips at y≈-154.
 export const DOCK_CLIP_Y = -154;
-export const DOCK_NODE_R = 11;
-export const DOCK_CENTER_R = 13;
-export const DOCK_CAM_Y = -200;
+// In-game corner panel (view units): d-pad lives here, not only inside the diamond cap.
+export const DOCK_NODE_R = 18;
+export const DOCK_CENTER_R = 22;
+export const DOCK_CAM_X = -70;
+export const DOCK_CAM_Y = -240;
+export const DOCK_BOX = { l: -310, r: 80, t: -384, b: -118 };
+// Option gems are chamfered diamonds: r is the inradius, tips sit at r√2.
+export const gemExtent = (r) => r * Math.SQRT2;
 
 export function snapPoly(pts, p = PIXEL) { return pts.map((q) => ({ x: snap(q.x, p), y: snap(q.y, p) })); }
 
@@ -200,10 +205,10 @@ export function dockHalfW(y) {
 }
 
 export function diskInDock(x, y, r, pad = 4) {
-  if (x + r + pad > DOCK_RIGHT || x - r - pad < -DOCK_LEFT) return false;
-  if (y + r + pad > DOCK_CLIP_Y) return false;
-  if (y - r - pad < -SPHERE_H + 8) return false;
-  return diskInSphere(x, y, r, pad);
+  const b = DOCK_BOX;
+  if (x + r + pad > b.r || x - r - pad < b.l) return false;
+  if (y + r + pad > b.b || y - r - pad < b.t) return false;
+  return true;
 }
 
 function vertsBetween(lo, hi, inset, sy = 1) {

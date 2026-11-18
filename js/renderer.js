@@ -1,5 +1,5 @@
 // Renderer: faceted diamond Control Sphere, octilinear links, select/travel/undo motion.
-// size-exception: 310 lines — docked silhouette swap and node radii stay with the draw path.
+// size-exception: 314 lines — docked silhouette swap, panel mask, and node radii stay with the draw path.
 import { STANCES, IDLE, centerLabel, optionLabel, raelPoseFor, isMoving } from './data.js';
 import { R_SPHERE, R_INNER, polar, screenDeg } from './layout.js';
 import { curveFn, tween, onFrame, cancelAll } from './anim.js';
@@ -21,8 +21,8 @@ function mix(a, b, t) {
   const p = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
   const A = p(a), B = p(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join('');
 }
-function nodeDiamond(r, fill, stroke, sw, dash) {
-  const pix = r < 24 ? 2 : PIXEL; const flat = Math.max(pix * 2, Math.round(r * 0.3));
+function nodeDiamond(r, fill, stroke, sw, dash, pix = r < 24 ? 2 : PIXEL) {
+  const flat = Math.max(pix * 2, Math.round(r * 0.3));
   return el('path', { d: diamondPath(r, flat, pix), ...LINE, fill, stroke, 'stroke-width': sw, 'stroke-dasharray': dash, 'shape-rendering': 'crispEdges' });
 }
 
@@ -169,9 +169,11 @@ function airTickPlate(left, max) {
     const st = STANCES[stance] || STANCES.standing; const r = opts.r || 28;
     const g = el('g', { class: 'node' + (move.stub ? ' stub' : '') + (opts.center ? ' center' : ''), 'data-id': opts.trail ? null : opts.center ? '__center' : id });
     const b = el('g', { class: 'body' });
-    b.append(nodeDiamond(r + (r < 24 ? 2 : 10), 'transparent', 'none', 0));
-    b.append(nodeDiamond(r, st.color, INK, 2.6, move.stub ? '5 4' : null));
-    b.append(nodeDiamond(Math.max(6, r - 6), 'none', MOTIF.cream, 1.6));
+    const pix = (opts.docked || r < 32) ? 2 : PIXEL;
+    const hit = (opts.docked || r < 24) ? 2 : 10;
+    b.append(nodeDiamond(r + hit, 'transparent', 'none', 0, null, pix));
+    b.append(nodeDiamond(r, st.color, INK, 2.6, move.stub ? '5 4' : null, pix));
+    b.append(nodeDiamond(Math.max(6, r - 6), 'none', MOTIF.cream, 1.6, null, pix));
     if (opts.center) {
       const glyph = raelGlyph(r / 30, opts.pose || 'idle');
       if (opts.flipPop) glyph.classList.add('flipPop');
@@ -195,6 +197,7 @@ function airTickPlate(left, max) {
     model = m; const s = m.settings; const fast = motionOff(s);
     setSilhouette(silSy(m));
     drawBackground(m); drawRing(m); setCam(m.docked ? { x: 0, y: 0 } : m.cam);
+    if (m.docked) worldWrap.removeAttribute('mask'); else worldWrap.setAttribute('mask', 'url(#worldMask)');
     trailL.replaceChildren(); linkL.replaceChildren(); twigL.replaceChildren(); nodeL.replaceChildren(); labelL.replaceChildren(); juiceL.replaceChildren(); optNodes = new Map();
     const n = m.steps.length;
     for (let k = m.docked ? n : Math.max(1, n - 7); k < n; k++) {
@@ -212,7 +215,7 @@ function airTickPlate(left, max) {
     show.prevAir = m.airState;
     const grant = m.airState ? (m.cat.move('jumping').ticks || 8) : 0;
     curNode = nodeEl(m.cur.id, cm, m.cur.stance, {
-      r: m.docked ? DOCK_CENTER_R : 34, center: true, pose: raelPoseFor(m.cat, m.cur.id, m.cur.stance), moving: isMoving(cm),
+      r: m.docked ? DOCK_CENTER_R : 34, docked: !!m.docked, center: true, pose: raelPoseFor(m.cat, m.cur.id, m.cur.stance), moving: isMoving(cm),
       label: m.docked ? null : centerLabel(m.cat, m.cur.id, m.cur.stance),
       airTicks: m.airTicks, airTicksMax: grant, flipPop,
     });
@@ -224,7 +227,7 @@ function airTickPlate(left, max) {
       const stc = STANCES[o.resultStance].color;
       const link = el('path', { ...LINE, stroke: stc, 'stroke-width': s.line, 'stroke-opacity': 0.75, 'stroke-dasharray': o.move.stub ? '4 5' : null });
       linkL.append(link);
-      const node = nodeEl(o.id, o.move, o.resultStance, { r: m.docked ? DOCK_NODE_R : 28, dirChevron: s.style === 'direction' ? o.screen : null });
+      const node = nodeEl(o.id, o.move, o.resultStance, { r: m.docked ? DOCK_NODE_R : 28, docked: !!m.docked, dirChevron: s.style === 'direction' ? o.screen : null });
       node.g.setAttribute('tabindex', '0');
       node.g.setAttribute('focusable', 'true');
       node.g.setAttribute('role', 'button');

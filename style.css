@@ -162,11 +162,11 @@ textarea.export { font: 12px/1.35 ui-monospace, Menlo, monospace; resize: vertic
 .leyGhost { background: color-mix(in srgb, #5294cd 35%, transparent); }
 .leyFill { background: #5294cd; }
 .beatTrack { flex: 1 1 280px; min-width: 200px; display: flex; flex-direction: column; gap: 2px; }
-.beatHead { display: grid; grid-template-columns: 36px repeat(8, 1fr); font: 800 8px/1 ui-monospace, Menlo, monospace; letter-spacing: .04em; color: var(--text); opacity: .85; }
+.beatHead { display: grid; grid-template-columns: 36px repeat(8, 1fr); font: 800 9px/1 ui-monospace, Menlo, monospace; letter-spacing: .04em; color: #ede1a9; opacity: 1; }
 .beatLane { display: grid; grid-template-columns: 36px 1fr; gap: 4px; align-items: center; }
 .beatName { font: 800 8px/1 ui-monospace, Menlo, monospace; letter-spacing: .04em; color: var(--text); }
-.beatRow { position: relative; height: 12px; background: #15132b; border: 1px solid var(--ink); }
-.beatBlock { position: absolute; top: 1px; bottom: 1px; font: 800 7px/10px ui-monospace, Menlo, monospace; color: var(--ink); text-align: center; overflow: hidden; border: 1px solid var(--ink); }
+.beatRow { position: relative; height: 16px; background: #15132b; border: 2px solid var(--ink); box-shadow: inset 0 0 0 1px #2a2848; image-rendering: pixelated; }
+.beatBlock { position: absolute; top: 1px; bottom: 1px; font: 800 8px/14px ui-monospace, Menlo, monospace; color: var(--ink); text-align: center; overflow: hidden; border: 2px solid var(--ink); image-rendering: pixelated; }
 .beatBlock.move { background: #5294cd; }
 .beatBlock.action { background: #b4bda5; }
 .beatBlock.step { background: #e88a4a; }
@@ -210,7 +210,7 @@ body.inGame .stageWrap { width: min(100%, 42vh, calc(100vh - 460px)); margin: 0 
 .beatPanel { flex: 1 1 280px; min-width: 200px; display: flex; flex-direction: column; gap: 4px; height: auto; align-self: flex-end; }
 .beatPanel .beatTrack { flex: 0 0 auto; min-width: 0; }
 .leyLane { display: grid; grid-template-columns: 36px 1fr; gap: 4px; align-items: center; }
-.leyLane .leyTrack { position: relative; height: 10px; background: #15132b; border: 2px solid var(--ink); }
+.leyLane .leyTrack { position: relative; height: 12px; background: #15132b; border: 2px solid #ede1a9; box-shadow: inset 0 0 0 1px #15132b; }
 .leyLane .leyVal { position: absolute; right: 4px; top: -1px; font: 800 8px/10px ui-monospace, Menlo, monospace; color: #5294cd; }
 .dockActions { display: flex; flex-direction: column; gap: 6px; flex: 0 0 72px; }
 .dockActions button { flex: 1; min-height: 28px; margin: 0; padding: 4px 8px; font: 800 11px/1.1 ui-monospace, Menlo, monospace; letter-spacing: .04em; background: var(--panel); border: 2px solid var(--ink); box-shadow: 2px 2px 0 #0c0a1d; color: var(--text); cursor: pointer; }
@@ -245,7 +245,7 @@ body.inGame .beatPanel { flex: 0 0 auto; width: 45.8vw; min-width: 200px; }
 body.inGame .gameHud {
   width: 100%; margin: 0; padding: 0; gap: 8px;
   background: none; border: none; box-shadow: none;
-  display: flex; flex-wrap: nowrap; align-items: stretch;
+  display: flex; flex-wrap: nowrap; align-items: flex-end;
 }
 body.inGame .hudPlate, body.inGame .beatPanel, body.inGame .dockActions {
   background: color-mix(in srgb, var(--panel) 92%, #000);
@@ -262,3 +262,35 @@ body.inGame .hudReserve.scroll .beatTrack::-webkit-scrollbar-thumb { background:
   body.inGame .gameHud { flex-wrap: wrap; }
   body.inGame .beatPanel { min-width: 0; flex: 1 1 100%; }
 }
+
+/* Corner panel + reserved text strip + momentum readout over the Ley strip. */
+.dockPanel {
+  display: none;
+  position: absolute; z-index: 2; pointer-events: none;
+  background: color-mix(in srgb, #232147 86%, #ede1a9 14%);
+  border: 3px solid #ede1a9;
+  box-shadow: inset 0 0 0 2px #15132b, 4px 4px 0 #0c0a1d;
+  clip-path: polygon(0 16%, 46% 0, 100% 16%, 100% 100%, 0 100%);
+  image-rendering: pixelated;
+}
+body.inGame .dockPanel { display: block; }
+.hudText { min-height: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid var(--ink); margin: 0 0 4px; padding: 0 4px; }
+body.inGame .hudText .moveInfo {
+  position: static; inset: auto; right: auto; top: auto;
+  width: 100%; height: 100%; min-height: 0; margin: 0; padding: 0;
+  background: transparent; border: none; box-shadow: none;
+}
+.momReadout { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-height: 18px; margin: 0 0 3px; }
+.momName { margin-right: auto; font: 800 9px/1 ui-monospace, Menlo, monospace; letter-spacing: .08em; color: #ede1a9; }
+.momVal { font: 800 12px/1 ui-monospace, Menlo, monospace; letter-spacing: .04em; color: #ede1a9; }
+.momPips { display: inline-flex; gap: 5px; }
+.momPips i { width: 10px; height: 10px; transform: rotate(45deg); background: #15132b; border: 2px solid #15132b; box-shadow: 0 0 0 1px #ede1a9; display: inline-block; image-rendering: pixelated; }
+.momPips i.on { background: #5294cd; }
+.momPips i.part { background: linear-gradient(90deg, #5294cd var(--fill, 25%), #15132b var(--fill, 25%)); }
+.momReadout.momPop { animation: momPop 160ms steps(3, end); }
+@keyframes momPop {
+  0% { transform: scale(1); }
+  33% { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .momReadout.momPop { animation: none; } }

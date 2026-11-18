@@ -11,6 +11,7 @@ import { FACING_NAMES } from './layout.js';
 import { h } from './ui.js';
 import { renderStanceBar, renderCenterBar } from './stances.js';
 import { bootInGame, refreshGameHud } from './hud.js';
+import { bumpMomentum } from './momentum.js';
 import { bindSettingsButton } from './settings.js';
 import { createPlus } from './plus.js';
 import { moveBlurb } from './icon.js';
@@ -93,6 +94,7 @@ const act = {
   select(id) {
     if (!app.model.options.some((o) => o.id === id)) return;
     navigator.vibrate?.(8);
+    bumpMomentum(0.25);
     renderer.travelTo(id, () => { app.path = [...app.path, id]; app.hover = null; refresh(true); renderBuilder($('#builder'), app); });
   },
   center() { if (app.path.length) go([]); else { svg.classList.remove('miss'); void svg.getBBox(); svg.classList.add('miss'); } },

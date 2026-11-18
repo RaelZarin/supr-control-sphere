@@ -1,11 +1,12 @@
 // In-game chrome: one bottom strip with vitals, the Beat Track (Ley + ticks), and Undo/Commit.
 // The necked diamond is docked flush against Undo/Commit; Beat Track is 15% narrower than before.
 import { h } from './ui.js';
-import { SPHERE_W, SPHERE_H, VIEW, DOCK_ARM, NECK_W, TIP, TOP_NECK } from './shape.js';
+import { SPHERE_W, SPHERE_H, VIEW, NECK_W, TIP, TOP_NECK, DOCK_ARM, DOCK_CAM_Y, DOCK_NODE_R, gemExtent } from './shape.js';
+import { formatMomentum, momentumPips, paintReadout } from './momentum.js';
 
 const LANE_H = 16;
 const BASE_LANES = 2;
-const DOCK_CHROME = 58; // beat head + ley row + panel padding
+const DOCK_CHROME = 126; // text strip + momentum + ley + beat head + padding
 
 function pips(n, max, fill, empty = '#15132b') {
   return h('span', { class: 'hudPips' }, ...Array.from({ length: max }, (_, i) =>
@@ -36,7 +37,17 @@ function beats(settings) {
   ];
   const lanes = [{ lane: 'Rael', blocks: rael }, ...enemyLanes(extras)];
   const span = 8;
+  const pips = momentumPips().map((fill) => {
+    const cls = fill >= 1 ? 'on' : (fill > 0 ? 'part' : '');
+    return h('i', { class: cls, style: `--fill:${Math.round(fill * 100)}%` });
+  });
   return h('div', { class: `beatPanel ${overflow}`, 'aria-label': 'Beat Track' },
+    h('div', { class: 'hudText', id: 'hudText', 'aria-label': 'Move name and description' }),
+    h('div', { class: 'momReadout', 'aria-label': `Momentum ${formatMomentum()}` },
+      h('span', { class: 'momName' }, 'Momentum'),
+      h('span', { class: 'momVal' }, formatMomentum()),
+      h('span', { class: 'momPips' }, ...pips),
+    ),
     h('div', { class: 'leyLane', 'aria-label': 'Ley bar' },
       h('span', { class: 'beatName' }, 'Ley'),
       h('div', { class: 'leyTrack' },
@@ -61,25 +72,47 @@ function beats(settings) {
 }
 
 
-const NODE_R = 28;
-const INFO_H = 48;
 const VIEW_SPAN = VIEW * 2;
+
+function ensureDockPanel(play) {
+  let panel = play.querySelector('.dockPanel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.className = 'dockPanel';
+    panel.setAttribute('aria-hidden', 'true');
+    play.insertBefore(panel, play.querySelector('.stageWrap'));
+  }
+  return panel;
+}
+
+function parkMoveInfo(on) {
+  const info = document.getElementById('moveInfo');
+  const slot = document.getElementById('hudText');
+  const play = document.querySelector('.playfield');
+  if (!info) return;
+  if (on && slot && info.parentElement !== slot) slot.appendChild(info);
+  if (!on && play) {
+    const wrap = play.querySelector('.stageWrap');
+    if (wrap && info.parentElement !== play) wrap.after(info);
+    info.style.left = info.style.top = info.style.right = info.style.bottom = info.style.width = '';
+  }
+}
 
 function clearDockedSphere() {
   const wrap = document.querySelector('.stageWrap');
-  const info = document.getElementById('moveInfo');
   const beat = document.querySelector('.beatPanel');
+  const panel = document.querySelector('.dockPanel');
   if (wrap) {
     wrap.style.left = wrap.style.top = wrap.style.right = wrap.style.bottom = '';
     wrap.style.width = wrap.style.height = wrap.style.transform = '';
     wrap.style.removeProperty('--sphereS');
   }
-  if (info) info.style.left = info.style.top = info.style.right = info.style.bottom = info.style.width = '';
   if (beat) { beat.style.width = ''; beat.style.flex = ''; }
+  if (panel) panel.remove();
+  parkMoveInfo(false);
 }
 
-// Place the diamond like the sketch: left rim flush with Undo, right and bottom clipped,
-// d-pad in the visible crop, hover strip above the tip.
+// Place the corner panel, sit the unsquashed diamond inside it, and park hover text above the Beat Track.
 export function layoutDockedSphere() {
   const on = document.body.classList.contains('inGame');
   const play = document.querySelector('.playfield');
@@ -126,11 +159,18 @@ export function layoutDockedSphere() {
   unit = S / VIEW_SPAN;
   halfW = SPHERE_W * unit;
   halfH = SPHERE_H * unit;
-  // Keep the 1c343e3 X placement (flush at Undo's top); then move down 40% of painted height.
-  const baseY = ur.top - pr.top;
+  // Keep the unsquashed size, sit the diamond in the corner panel, and leave a
+  // left gutter so the d-pad's left icon fits between Undo and the rim.
+  // Baseline is the Ley/momentum row, not Undo, so the reserved text strip can grow upward.
+  const mom = document.querySelector('.momReadout') || document.querySelector('.leyLane');
+  const baseY = ((mom || ur).getBoundingClientRect().top - pr.top);
+  const panelLeft = (ur.right - pr.left) + 8;
+  const iconRoom = 92;
   xAt = flushX(baseY, unit);
-  centerX = (ur.right - pr.left) - xAt * unit - 2;
+  centerX = panelLeft + iconRoom + halfW;
   centerY = baseY + 2 * halfH * 0.4;
+  const dockBot = centerY + (DOCK_CAM_Y + DOCK_ARM + gemExtent(DOCK_NODE_R) + 8) * unit;
+  if (dockBot > H - 8) centerY -= dockBot - (H - 8);
 
   wrap.style.setProperty('--sphereS', `${S}px`);
   wrap.style.width = wrap.style.height = `${S}px`;
@@ -139,16 +179,15 @@ export function layoutDockedSphere() {
   wrap.style.right = wrap.style.bottom = 'auto';
   wrap.style.transform = 'none';
 
-  if (info) {
-    const tipY = centerY - halfH;
-    const iw = Math.min(260, 0.36 * W);
-    const ix = Math.max(8, Math.min(centerX - iw / 2, W - iw - 8));
-    const iy = Math.max(8, tipY - 8 - INFO_H);
-    info.style.left = `${ix}px`;
-    info.style.top = `${iy}px`;
-    info.style.right = info.style.bottom = 'auto';
-    info.style.width = `${iw}px`;
-  }
+  const panel = ensureDockPanel(play);
+  const tipY = centerY - halfH;
+  panel.style.left = `${panelLeft}px`;
+  panel.style.right = '0px';
+  panel.style.top = `${Math.max(8, tipY - 28)}px`;
+  panel.style.bottom = '0px';
+
+  parkMoveInfo(true);
+  if (info) info.style.left = info.style.top = info.style.right = info.style.bottom = info.style.width = '';
 }
 
 function scheduleDockLayout() {
@@ -157,6 +196,7 @@ function scheduleDockLayout() {
 
 export function renderGameHud(el, settings = {}) {
   if (!el) return;
+  parkMoveInfo(false);
   el.replaceChildren(
     h('div', { class: 'hudPlate', 'aria-label': 'Rael vitals' },
       h('div', { class: 'hudMeter' }, ico('heart'), pips(14, 18, '#ea5439')),
@@ -190,6 +230,8 @@ export function refreshGameHud(app) {
   const extras = Math.max(0, Math.round(s.timelineEnemies ?? 3));
   renderGameHud(hud, s);
   bindDock(app);
+  paintReadout(false);
+  parkMoveInfo(document.body.classList.contains('inGame'));
   if (!reserve) return;
   reserve.classList.toggle('expand', overflow === 'expand');
   reserve.classList.toggle('scroll', overflow === 'scroll');

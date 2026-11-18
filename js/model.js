@@ -1,7 +1,7 @@
 // Model: turns (tree, settings, path) into what the renderer draws — world positions, current options, depth and FX level.
 import { walk, IDLE, mergeSettings, branchDepth, wheelNext, remainingAirTicks, airStateOf } from './data.js';
 import { placeOptions, polar, R_INNER } from './layout.js';
-import { DOCK_CAM_Y } from './shape.js';
+import { DOCK_CAM_X, DOCK_CAM_Y } from './shape.js';
 
 export function linkStyle(cat, settings, from, to, stance) {
   const o = cat.tree.links?.[cat.linkKey(from, to, stance)] || {};
@@ -46,5 +46,5 @@ export function buildModel(cat, settingsIn, path, extras = {}) {
     return { ...o, move: cat.move(o.id), resultStance: rs, link: linkStyle(cat, settings, cat.sourceOf(cur.stance, cur.prev), o.id, cur.stance), twigs };
   });
   const { level, depthLevel } = fxFromDepth(depth, settings, cur.stance);
-  return { cat, settings, steps, pos, cur, cam: extras.docked ? { x: 0, y: DOCK_CAM_Y } : pos[pos.length - 1], options, depth, level, depthLevel, empty: options.length === 0, airTicks, airState, docked: !!extras.docked };
+  return { cat, settings, steps, pos, cur, cam: extras.docked ? { x: DOCK_CAM_X, y: DOCK_CAM_Y } : pos[pos.length - 1], options, depth, level, depthLevel, empty: options.length === 0, airTicks, airState, docked: !!extras.docked };
 }
