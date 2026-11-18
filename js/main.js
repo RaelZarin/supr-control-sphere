@@ -39,9 +39,13 @@ function persist() { store.save(app.snapshot()); }
 
 function refresh(enter = false) {
   app.cat = makeCatalog(app.tree);
-  const m = buildModel(app.cat, app.settings, app.path, { docked: !!app.inGame });
-  if (app.boost) { m.depth += app.boost; Object.assign(m, fxFromDepth(m.depth, m.settings, m.cur.stance)); }
-  app.model = m; renderer.show(m, { enter }); renderHud();
+  const make = () => {
+    const m = buildModel(app.cat, app.settings, app.path, { docked: !!app.inGame });
+    if (app.boost) { m.depth += app.boost; Object.assign(m, fxFromDepth(m.depth, m.settings, m.cur.stance)); }
+    return m;
+  };
+  app.model = make(); renderer.show(app.model, { enter }); renderHud();
+  if (app.inGame) { app.model = make(); renderer.show(app.model, { enter: false }); }
 }
 
 let plus = null;

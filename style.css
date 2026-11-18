@@ -245,14 +245,14 @@ body.inGame .beatPanel { flex: 0 0 auto; width: 45.8vw; min-width: 200px; }
 body.inGame .gameHud {
   width: 100%; margin: 0; padding: 0; gap: 8px;
   background: none; border: none; box-shadow: none;
-  display: flex; flex-wrap: nowrap; align-items: flex-end;
+  display: flex; flex-wrap: nowrap; align-items: stretch;
 }
 body.inGame .hudPlate, body.inGame .beatPanel, body.inGame .dockActions {
   background: color-mix(in srgb, var(--panel) 92%, #000);
   border: 2px solid var(--ink); box-shadow: 3px 3px 0 #0c0a1d;
   padding: 6px 8px;
 }
-body.inGame .hudPlate { min-width: 148px; flex: 0 0 auto; }
+body.inGame .hudPlate { min-width: 148px; flex: 0 0 auto; justify-content: center; }
 body.inGame .hudReserve.scroll { min-height: 0; }
 body.inGame .hudReserve.scroll .beatTrack { max-height: 54px; overflow-x: hidden; overflow-y: auto; scrollbar-width: auto; scrollbar-color: #ede1a9 #15132b; }
 body.inGame .hudReserve.scroll .beatTrack::-webkit-scrollbar { width: 10px; }
@@ -267,12 +267,9 @@ body.inGame .hudReserve.scroll .beatTrack::-webkit-scrollbar-thumb { background:
 .dockPanel {
   display: none;
   position: absolute; z-index: 2; pointer-events: none;
-  background: color-mix(in srgb, #232147 86%, #ede1a9 14%);
-  border: 3px solid #ede1a9;
-  box-shadow: inset 0 0 0 2px #15132b, 4px 4px 0 #0c0a1d;
-  clip-path: polygon(0 16%, 46% 0, 100% 16%, 100% 100%, 0 100%);
-  image-rendering: pixelated;
+  background: none; border: 0; box-shadow: none; overflow: visible;
 }
+.dockPanel svg { display: block; width: 100%; height: 100%; overflow: visible; }
 body.inGame .dockPanel { display: block; }
 .hudText { min-height: 48px; height: 48px; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid var(--ink); margin: 0 0 4px; padding: 0 4px; }
 body.inGame .hudText .moveInfo {

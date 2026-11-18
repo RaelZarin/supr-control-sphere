@@ -1,7 +1,8 @@
 // In-game chrome: one bottom strip with vitals, the Beat Track (Ley + ticks), and Undo/Commit.
 // The necked diamond is docked flush against Undo/Commit; Beat Track is 15% narrower than before.
 import { h } from './ui.js';
-import { SPHERE_W, SPHERE_H, VIEW, NECK_W, TIP, TOP_NECK, DOCK_ARM, DOCK_CAM_Y, DOCK_NODE_R, gemExtent } from './shape.js';
+import { SPHERE_W, SPHERE_H, VIEW, NECK_W, TIP, TOP_NECK, DOCK_ARM, DOCK_CAM_X, DOCK_CAM_Y, DOCK_NODE_R, DOCK_BOX, gemExtent } from './shape.js';
+import { PANEL_PAD_PX, PANEL_STROKE, panelVertsFromBox, panelPath, insetConvex, setDockPanel, panelAabb } from './panel.js';
 import { formatMomentum, momentumPips, paintReadout } from './momentum.js';
 
 const LANE_H = 16;
@@ -83,6 +84,21 @@ function ensureDockPanel(play) {
     play.insertBefore(panel, play.querySelector('.stageWrap'));
   }
   return panel;
+}
+
+function paintDockPanel(panel, w, h) {
+  const pts = panelVertsFromBox({ l: 0, t: 0, r: w, b: h });
+  const inner = insetConvex(pts, PANEL_STROKE);
+  const ns = 'http://www.w3.org/2000/svg';
+  let svg = panel.querySelector('svg');
+  if (!svg) { svg = document.createElementNS(ns, 'svg'); panel.appendChild(svg); }
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('height', '100%');
+  svg.innerHTML = `<path class="panelFill" d="${panelPath(pts)}" fill="color-mix(in srgb, #232147 86%, #ede1a9 14%)" stroke="#ede1a9" stroke-width="${PANEL_STROKE}" stroke-linejoin="miter" vector-effect="non-scaling-stroke"/>` +
+    `<path class="panelInner" d="${panelPath(inner)}" fill="none" stroke="#15132b" stroke-width="2" stroke-linejoin="miter" vector-effect="non-scaling-stroke"/>`;
+  panel.dataset.points = pts.map((p) => `${p.x},${p.y}`).join(' ');
 }
 
 function parkMoveInfo(on) {
@@ -179,12 +195,24 @@ export function layoutDockedSphere() {
   wrap.style.right = wrap.style.bottom = 'auto';
   wrap.style.transform = 'none';
 
+  // Pin the house panel to the same 8px bottom baseline as the HUD strip, flush right, just after Undo.
+  const beatTop = (beat.getBoundingClientRect().top - pr.top);
+  const panelBottom = 8;
+  const panelTop = Math.max(8, Math.min(beatTop, centerY + (DOCK_CAM_Y - DOCK_ARM - gemExtent(DOCK_NODE_R)) * unit) - 36);
   const panel = ensureDockPanel(play);
-  const tipY = centerY - halfH;
   panel.style.left = `${panelLeft}px`;
   panel.style.right = '0px';
-  panel.style.top = `${Math.max(8, tipY - 28)}px`;
-  panel.style.bottom = '0px';
+  panel.style.top = `${panelTop}px`;
+  panel.style.bottom = `${panelBottom}px`;
+  const pw = W - panelLeft, ph = H - panelBottom - panelTop;
+  if (pw > 8 && ph > 8) {
+    paintDockPanel(panel, pw, ph);
+    const screenPts = panelVertsFromBox({ l: panelLeft, t: panelTop, r: W, b: H - panelBottom });
+    const viewPts = screenPts.map((p) => ({ x: (p.x - centerX) / unit, y: (p.y - centerY) / unit }));
+    setDockPanel(viewPts, (PANEL_PAD_PX + PANEL_STROKE / 2) / unit);
+  } else {
+    setDockPanel(panelVertsFromBox(DOCK_BOX), 8);
+  }
 
   parkMoveInfo(true);
   if (info) info.style.left = info.style.top = info.style.right = info.style.bottom = info.style.width = '';
@@ -240,7 +268,7 @@ export function refreshGameHud(app) {
   const room = DOCK_CHROME + cap * LANE_H;
   reserve.style.setProperty('--hudReserveH', (overflow === 'expand' ? room : compact) + 'px');
   reserve.style.setProperty('--hudDockH', compact + 'px');
-  scheduleDockLayout();
+  layoutDockedSphere();
 }
 
 export function setInGame(on, app) {
@@ -266,6 +294,6 @@ export function bootInGame(app) {
   });
   if (!bootInGame.bound) {
     bootInGame.bound = true;
-    window.addEventListener('resize', scheduleDockLayout);
+    window.addEventListener('resize', () => { layoutDockedSphere(); window.app?.redraw?.(false); });
   }
 }

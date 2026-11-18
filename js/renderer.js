@@ -1,5 +1,5 @@
 // Renderer: faceted diamond Control Sphere, octilinear links, select/travel/undo motion.
-// size-exception: 314 lines — docked silhouette swap, panel mask, and node radii stay with the draw path.
+// size-exception: 340 lines — docked silhouette swap, panel mask, and node radii stay with the draw path.
 import { STANCES, IDLE, centerLabel, optionLabel, raelPoseFor, isMoving } from './data.js';
 import { R_SPHERE, R_INNER, polar, screenDeg } from './layout.js';
 import { curveFn, tween, onFrame, cancelAll } from './anim.js';
@@ -7,6 +7,7 @@ import { createFx } from './fx.js';
 import { octilinearRoute, polylinePath, polylineAt, partialPolyline } from './route.js';
 import { createJuice, motionOff, juiceMs, PRESETS } from './juice.js';
 import { PIXEL, VIEW, MOTIF, snap, diamondPath, spherePath, diamondWedge, sphereAtAngle, facetFills, embossPaths, consumeAmount, DOCK_NODE_R, DOCK_CENTER_R } from './shape.js';
+import { dockPanelVerts, panelPath } from './panel.js';
 import { raelGlyph } from './rael.js';
 import { moveIcon } from './icon.js';
 
@@ -50,11 +51,26 @@ export function createRenderer(svg, handlers) {
   const glow = el('path', { d: spherePath(-PIXEL), ...LINE, filter: 'url(#glowF)', 'pointer-events': 'none' });
   const ring = el('path', { d: spherePath(), class: 'ring', ...LINE, 'shape-rendering': 'crispEdges', 'pointer-events': 'none' });
   const deco = el('g', { 'pointer-events': 'none' });
+  const panelClip = el('clipPath', { id: 'panelClip', clipPathUnits: 'userSpaceOnUse' });
+  const panelClipPath = el('path', { d: 'M0,0' });
+  panelClip.append(panelClipPath);
+  svg.querySelector('defs').append(panelClip);
+  const backdrop = el('g', { class: 'dockBackdrop', 'pointer-events': 'none' }, body, facets);
   const world = el('g'); const worldWrap = el('g', { mask: 'url(#worldMask)' }, world);
   const trailL = el('g', { 'pointer-events': 'none' }), linkL = el('g', { 'pointer-events': 'none' }), twigL = el('g', { 'pointer-events': 'none' }), nodeL = el('g'), labelL = el('g', { 'pointer-events': 'none' });
   const juiceL = el('g', { 'pointer-events': 'none' });
   world.append(trailL, linkL, twigL, nodeL, labelL, juiceL);
-  svg.append(body, facets, bg, fxLayer, emboss, glow, ring, deco, worldWrap);
+  svg.append(backdrop, bg, fxLayer, emboss, glow, ring, deco, worldWrap);
+
+  function applyDockBackdrop(m) {
+    const on = !!m.docked;
+    const pts = dockPanelVerts();
+    if (on && pts && pts.length) panelClipPath.setAttribute('d', panelPath(pts));
+    backdrop.setAttribute('clip-path', on && pts && pts.length ? 'url(#panelClip)' : '');
+    backdrop.style.opacity = on ? '0.42' : '1';
+    for (const n of [emboss, glow, ring, deco, bg]) n.style.display = on ? 'none' : '';
+    facets.style.opacity = on ? '0.2' : '';
+  }
   const fx = createFx(fxLayer);
   const juice = createJuice(juiceL);
 
@@ -135,6 +151,8 @@ export function createRenderer(svg, handlers) {
   }
 
   function drawRing(m) {
+    applyDockBackdrop(m);
+    if (m.docked) { applyRim(m); return; }
     const st = STANCES[m.cur.stance]; const dl = m.depthLevel; const s = m.settings;
     const distort = !!s.rimDistortion;
     const eat = distort ? consumeAmount(m.level) : 0;

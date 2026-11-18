@@ -1,5 +1,7 @@
 import { DIRS } from './data.js';
 import { sphereAtAngle, diskInSphere, diskInDock, TOP_SLOT, BOT_SLOT, DOCK_ARM, DOCK_BOX, DOCK_NODE_R, DOCK_CENTER_R, DOCK_CAM_X, DOCK_CAM_Y, gemExtent } from './shape.js';
+import { diskInPanel, dockPanelVerts, dockPanelPad, panelVertsFromBox, setDockPanel } from './panel.js';
+setDockPanel(panelVertsFromBox(DOCK_BOX), 8);
 // Layout math: height-sector placement (port of MomentumCatalog.place_star_nodes), graph-arm angles, facing + mirror.
 export const R_INNER = 110, R_OUTER = 168, MIN_GAP = 64, R_SPHERE = 214;
 const rad = (d) => (d * Math.PI) / 180;
@@ -137,13 +139,16 @@ function neckTarget(deg) {
 // Pull a disk onto the ray so it stays inside the silhouette (and optional dock crop).
 export function clampOption(o, nodeR = 28, pad = 8, docked = false) {
   if (docked) {
+    const pts = dockPanelVerts() || panelVertsFromBox(DOCK_BOX);
+    const needPad = pad;
     let x = o.x, y = o.y;
-    const limX = DOCK_BOX.r - nodeR - pad, limXLeft = DOCK_BOX.l + nodeR + pad;
-    const limY = DOCK_BOX.b - nodeR - pad, limYTop = DOCK_BOX.t + nodeR + pad;
-    if (x > limX) x = limX;
-    if (x < limXLeft) x = limXLeft;
-    if (y > limY) y = limY;
-    if (y < limYTop) y = limYTop;
+    if (diskInPanel(x, y, nodeR, needPad, pts)) return applyPos(o, x, y);
+    const cx = DOCK_CAM_X, cy = DOCK_CAM_Y;
+    for (let i = 0; i < 28; i++) {
+      x = cx + (x - cx) * 0.9;
+      y = cy + (y - cy) * 0.9;
+      if (diskInPanel(x, y, nodeR, needPad, pts)) break;
+    }
     return applyPos(o, x, y);
   }
   const ang = Math.atan2(o.y, o.x);
@@ -165,7 +170,8 @@ export function clampOption(o, nodeR = 28, pad = 8, docked = false) {
 export function fitOptions(opts, nodeR = 28, docked = false) {
   let out = opts.map((o) => ({ ...o }));
   const packR = docked ? gemExtent(nodeR) : nodeR;
-  const keep = docked ? (o) => clampOption(o, packR, 4, true) : (o) => clampOption(o, nodeR, 8, false);
+  const dockPad = docked ? dockPanelPad() : 8;
+  const keep = docked ? (o) => clampOption(o, packR, dockPad, true) : (o) => clampOption(o, nodeR, 8, false);
   const min = docked ? packR * 2 + 6 : NODE_MIN;
   const clear = docked ? gemExtent(DOCK_CENTER_R) + packR + 6 : CENTER_CLEAR;
   const origin = docked ? { x: DOCK_CAM_X, y: DOCK_CAM_Y } : { x: 0, y: 0 };
@@ -173,22 +179,32 @@ export function fitOptions(opts, nodeR = 28, docked = false) {
   return out;
 }
 
-function packArm(items, deg, arm = DOCK_ARM) {
-  const a = (deg * Math.PI) / 180, ux = Math.cos(a), uy = Math.sin(a);
-  const px = -uy, py = ux;
-  const n = items.length, pad = 4, r = gemExtent(DOCK_NODE_R);
-  const ox = DOCK_CAM_X, oy = DOCK_CAM_Y;
-  const want = r * 2 + 8;
-  // Left/right arms fan vertically; up/down arms fan horizontally. Keep the fan in the panel.
-  const horiz = Math.abs(ux) > 0.7;
-  const room = horiz
-    ? Math.min((oy + uy * arm) - (DOCK_BOX.t + r + pad), (DOCK_BOX.b - r - pad) - (oy + uy * arm))
-    : Math.min((ox + ux * arm) - (DOCK_BOX.l + r + pad), (DOCK_BOX.r - r - pad) - (ox + ux * arm));
-  const gap = n > 1 ? Math.min(want, Math.max(r * 2 + 4, (2 * Math.max(0, room)) / (n - 1))) : want;
-  return items.map((o, i) => {
-    const side = (i - (n - 1) / 2) * gap;
-    return applyPos({ ...o }, ox + ux * arm + px * side, oy + uy * arm + py * side);
-  });
+function xyArm(deg, arm) {
+  const a = (deg * Math.PI) / 180;
+  return [DOCK_CAM_X + Math.cos(a) * arm, DOCK_CAM_Y + Math.sin(a) * arm];
+}
+
+const SLOT_DEG = { U: -90, D: 90, L: 180, R: 0, NE: -45, NW: -135, SE: 45, SW: 135 };
+const ARM_SLOTS = { high: ['U', 'NW', 'NE'], low: ['D', 'SW', 'SE'], left: ['L', 'NW', 'SW'], right: ['R', 'NE', 'SE'] };
+
+// Cardinal first so the five-slot cross reads; extras share the 8-way diagonals, then a second ring.
+function packSlots(buckets) {
+  const used = new Map();
+  const step = gemExtent(DOCK_NODE_R) * 2 + 8;
+  const out = [];
+  for (const [arm, items] of Object.entries(buckets)) {
+    const names = ARM_SLOTS[arm] || ['U'];
+    for (const o of items) {
+      let best = names[0], bestN = 99;
+      for (const name of names) {
+        const n = used.get(name) || 0;
+        if (n < bestN) { bestN = n; best = name; }
+      }
+      used.set(best, bestN + 1);
+      out.push(applyPos({ ...o }, ...xyArm(SLOT_DEG[best], DOCK_ARM + bestN * step)));
+    }
+  }
+  return out;
 }
 
 // Split mid options across left/right; extras past 4 spill onto the lighter vertical arm.
@@ -223,12 +239,7 @@ function bucketDocked(full, cat) {
 export function placeDockedOptions(cat, ids, stance, prev, settings, fromId) {
   const full = placeOptions(cat, ids, stance, prev, { ...settings, sphereLayout: 'full' }, fromId);
   const buckets = bucketDocked(full, cat);
-  const seed = [
-    ...packArm(buckets.high, -90),
-    ...packArm(buckets.low, 90),
-    ...packArm(buckets.left, 180),
-    ...packArm(buckets.right, 0),
-  ];
+  const seed = packSlots(buckets);
   return fitOptions(seed, DOCK_NODE_R, true);
 }
 

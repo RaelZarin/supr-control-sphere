@@ -35,7 +35,7 @@ export const DOCK_NODE_R = 18;
 export const DOCK_CENTER_R = 22;
 export const DOCK_CAM_X = -70;
 export const DOCK_CAM_Y = -240;
-export const DOCK_BOX = { l: -310, r: 80, t: -384, b: -118 };
+export const DOCK_BOX = { l: -318, r: 72, t: -400, b: -118 };
 // Option gems are chamfered diamonds: r is the inradius, tips sit at r√2.
 export const gemExtent = (r) => r * Math.SQRT2;
 
