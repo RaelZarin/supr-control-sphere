@@ -1,8 +1,8 @@
 // In-game chrome: one bottom strip with vitals, the Beat Track (Ley + ticks), and Undo/Commit.
-// The necked diamond is docked flush against Undo/Commit; Beat Track is 15% narrower than before.
+// The corner panel is a fixed 270×150 house at 1280×800 (half the previous dock), anchored bottom-right.
 import { h } from './ui.js';
-import { SPHERE_W, SPHERE_H, VIEW, NECK_W, TIP, TOP_NECK, DOCK_ARM, DOCK_CAM_X, DOCK_CAM_Y, DOCK_NODE_R, DOCK_BOX, gemExtent } from './shape.js';
-import { PANEL_PAD_PX, PANEL_STROKE, panelVertsFromBox, panelPath, insetConvex, setDockPanel, panelAabb } from './panel.js';
+import { VIEW, DOCK_CAM_X, DOCK_CAM_Y, DOCK_NODE_R, DOCK_BOX } from './shape.js';
+import { PANEL_PAD_PX, PANEL_STROKE, PANEL_OPTION_PX, panelPixelSize, panelViewScale, panelVertsFromBox, panelPath, insetConvex, setDockPanel } from './panel.js';
 import { formatMomentum, momentumPips, paintReadout } from './momentum.js';
 
 const LANE_H = 16;
@@ -144,49 +144,22 @@ export function layoutDockedSphere() {
   const W = pr.width, H = pr.height;
   const hpW = plate.getBoundingClientRect().width;
   const undoW = undo.getBoundingClientRect().width;
-  // Previous beat used leftover after HP, Undo, and a 47%-of-S + 48px diamond reserve.
-  const oldS = Math.min(0.58 * window.innerHeight, 0.62 * window.innerWidth, 560);
-  const oldBeat = Math.max(200, W - 8 - hpW - 8 - 8 - undoW - (oldS * 0.47 + 48));
+  // Footprint and icon px are based on the viewport, so 1280×800 yields 270×150 / 25 / 29.
+  const { w: pw, h: ph } = panelPixelSize(window.innerWidth, window.innerHeight);
+  const beatW = Math.max(200, W - 8 - hpW - 8 - 8 - undoW - (pw + 8));
   beat.style.flex = '0 0 auto';
-  beat.style.width = Math.round(oldBeat * 0.85) + 'px';
+  beat.style.width = Math.round(beatW) + 'px';
 
-  const ur = undo.getBoundingClientRect();
-  // At least 25% bigger than the previous 402px dock (502 at 1280×800). Grow further
-  // so the right tip runs off the edge while the left rim stays flush with Undo.
-  const minS = 502 * Math.min(W / 1280, H / 748);
-  const clip = 40;
-  const x0 = -SPHERE_W, y0 = 0;
-  const x1 = -NECK_W, y1 = -(SPHERE_H - TIP - TOP_NECK);
-  const flushX = (centerY, unit) => {
-    const yAt = (ur.top - pr.top - centerY) / unit;
-    if (y1 !== y0 && yAt < 0 && yAt > y1) return x0 + ((yAt - y0) / (y1 - y0)) * (x1 - x0);
-    return x0;
-  };
-  let S = minS, unit, halfW, halfH, centerX, centerY, xAt;
-  for (let i = 0; i < 6; i++) {
-    unit = S / VIEW_SPAN;
-    halfH = SPHERE_H * unit;
-    halfW = SPHERE_W * unit;
-    centerY = ur.top - pr.top;
-    xAt = flushX(centerY, unit);
-    const need = ((W + clip) - (ur.right - pr.left) + 2) / (SPHERE_W - xAt) * VIEW_SPAN;
-    S = Math.max(minS, need);
-  }
-  unit = S / VIEW_SPAN;
-  halfW = SPHERE_W * unit;
-  halfH = SPHERE_H * unit;
-  // Keep the unsquashed size, sit the diamond in the corner panel, and leave a
-  // left gutter so the d-pad's left icon fits between Undo and the rim.
-  // Baseline is the Ley/momentum row, not Undo, so the reserved text strip can grow upward.
-  const mom = document.querySelector('.momReadout') || document.querySelector('.leyLane');
-  const baseY = ((mom || ur).getBoundingClientRect().top - pr.top);
-  const panelLeft = (ur.right - pr.left) + 8;
-  const iconRoom = 92;
-  xAt = flushX(baseY, unit);
-  centerX = panelLeft + iconRoom + halfW;
-  centerY = baseY + 2 * halfH * 0.4;
-  const dockBot = centerY + (DOCK_CAM_Y + DOCK_ARM + gemExtent(DOCK_NODE_R) + 8) * unit;
-  if (dockBot > H - 8) centerY -= dockBot - (H - 8);
+  // Unit is chosen so option gems are PANEL_OPTION_PX (25) tip-to-tip at 1280×800.
+  const scale = panelViewScale(window.innerWidth, window.innerHeight);
+  const unit = (PANEL_OPTION_PX * scale) / (2 * Math.SQRT2 * DOCK_NODE_R);
+  const S = unit * VIEW_SPAN;
+  const panelBottom = 8;
+  const panelLeft = W - pw;
+  const panelTop = H - panelBottom - ph;
+  // Sit the d-pad origin at 40%, 58% of the house, matching the Godot packer.
+  const centerX = panelLeft + pw * 0.40 - DOCK_CAM_X * unit;
+  const centerY = panelTop + ph * 0.58 - DOCK_CAM_Y * unit;
 
   wrap.style.setProperty('--sphereS', `${S}px`);
   wrap.style.width = wrap.style.height = `${S}px`;
@@ -195,16 +168,11 @@ export function layoutDockedSphere() {
   wrap.style.right = wrap.style.bottom = 'auto';
   wrap.style.transform = 'none';
 
-  // Pin the house panel to the same 8px bottom baseline as the HUD strip, flush right, just after Undo.
-  const beatTop = (beat.getBoundingClientRect().top - pr.top);
-  const panelBottom = 8;
-  const panelTop = Math.max(8, Math.min(beatTop, centerY + (DOCK_CAM_Y - DOCK_ARM - gemExtent(DOCK_NODE_R)) * unit) - 36);
   const panel = ensureDockPanel(play);
   panel.style.left = `${panelLeft}px`;
   panel.style.right = '0px';
   panel.style.top = `${panelTop}px`;
   panel.style.bottom = `${panelBottom}px`;
-  const pw = W - panelLeft, ph = H - panelBottom - panelTop;
   if (pw > 8 && ph > 8) {
     paintDockPanel(panel, pw, ph);
     const screenPts = panelVertsFromBox({ l: panelLeft, t: panelTop, r: W, b: H - panelBottom });

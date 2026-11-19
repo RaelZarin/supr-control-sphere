@@ -32,7 +32,7 @@ export const DOCK_SY = 1;
 export const DOCK_CLIP_Y = -154;
 // In-game corner panel (view units): d-pad lives here, not only inside the diamond cap.
 export const DOCK_NODE_R = 18;
-export const DOCK_CENTER_R = 22;
+export const DOCK_CENTER_R = 21;
 export const DOCK_CAM_X = -70;
 export const DOCK_CAM_Y = -240;
 export const DOCK_BOX = { l: -318, r: 72, t: -400, b: -118 };

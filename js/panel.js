@@ -8,7 +8,26 @@ export const PANEL_NORM = [
   [1, 1],
 ];
 export const PANEL_PAD_PX = 6;
-export const PANEL_STROKE = 5;
+export const PANEL_STROKE = 3;
+export const PANEL_REF_VIEW_W = 1280;
+export const PANEL_REF_VIEW_H = 800;
+export const PANEL_REF_W = 270;
+export const PANEL_REF_H = 150;
+export const PANEL_OPTION_PX = 25;
+export const PANEL_CENTER_PX = 29;
+
+export function panelViewScale(viewW, viewH) {
+  return Math.min(viewW / PANEL_REF_VIEW_W, viewH / PANEL_REF_VIEW_H);
+}
+
+export function panelPixelSize(viewW, viewH) {
+  const s = panelViewScale(viewW, viewH);
+  return {
+    w: Math.max(1, Math.round(PANEL_REF_W * s)),
+    h: Math.max(1, Math.round(PANEL_REF_H * s)),
+  };
+}
+
 
 export function panelVertsFromBox(box) {
   const { l, t, r, b } = box;
